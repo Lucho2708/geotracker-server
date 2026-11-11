@@ -1,7 +1,8 @@
+import os
 from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status, Query
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -36,6 +37,22 @@ templates = Jinja2Templates(directory="app/templates")
 def on_startup():
     db = next(get_db())
     ensure_admin_user(db)
+
+# ====================================================================
+# DESCARGA PÚBLICA DEL APK PARA DISPOSITIVOS MÓVILES
+# ====================================================================
+@app.get("/descargar")
+@app.get("/download")
+@app.get("/api/v1/download/app")
+def download_apk():
+    apk_path = os.path.join("app", "static", "downloads", "mapas.apk")
+    if os.path.exists(apk_path):
+        return FileResponse(
+            path=apk_path,
+            filename="Mapas.apk",
+            media_type="application/vnd.android.package-archive"
+        )
+    raise HTTPException(status_code=404, detail="El archivo APK aún no ha sido cargado en el servidor.")
 
 # ====================================================================
 # INGESTIÓN DE TELEMETRÍA (Llamado por el APK Android cada 5 min)
