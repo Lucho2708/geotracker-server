@@ -169,48 +169,68 @@ function renderDeviceMarkers(devices) {
         const marker = L.marker([lat, lng], { icon: customIcon });
 
         const popupContent = `
-            <div class="p-2 min-w-[240px] space-y-2">
-                <div class="flex items-center justify-between pb-1.5 border-b border-slate-700">
-                    <div class="flex items-center space-x-1.5 font-bold text-sm text-sky-400">
-                        <svg class="w-4 h-4 text-sky-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        <span class="truncate">${escapeHtml(dev.name || dev.id)}</span>
+            <div class="p-3 w-[290px] space-y-2.5">
+                <!-- Encabezado con nombre y estado (con espacio reservado a la derecha para el botón de cerrar) -->
+                <div class="flex items-center justify-between pb-2 pr-8 border-b border-slate-700/80">
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center flex-shrink-0">
+                            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        </div>
+                        <span class="font-bold text-sm text-white truncate max-w-[130px]" title="${escapeHtml(dev.name || dev.id)}">${escapeHtml(dev.name || dev.id)}</span>
                     </div>
-                    <span class="${dev.is_online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-700 text-slate-300'} px-2 py-0.5 rounded-full text-[10px] font-bold">
-                        ${dev.is_online ? 'EN LÍNEA' : 'DESCONECTADO'}
+                    <span class="${dev.is_online ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'} px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider flex-shrink-0 whitespace-nowrap">
+                        ${dev.is_online ? '● EN LÍNEA' : '○ DESCONECTADO'}
                     </span>
                 </div>
-                <div class="space-y-1 text-xs text-slate-300">
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">⚡ Velocidad:</span>
-                        <span class="font-semibold text-white">${speedKmh} km/h</span>
+
+                <!-- Mini cuadrícula de métricas principales -->
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">⚡ Velocidad</span>
+                        <span class="text-base font-extrabold text-sky-400 leading-tight mt-0.5">${speedKmh} <span class="text-[10px] font-medium text-slate-400">km/h</span></span>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">🎯 Precisión GPS:</span>
-                        <span class="font-semibold text-white">±${Math.round(dev.latest_point.accuracy || 0)} m</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">⛰️ Altitud:</span>
-                        <span class="font-semibold text-white">${Math.round(dev.latest_point.altitude || 0)} m</span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-400">🕒 Última señal:</span>
-                        <span class="font-semibold text-white">${new Date(dev.latest_point.timestamp).toLocaleTimeString()}</span>
-                    </div>
-                    <div class="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
-                        <span>Coordenadas:</span>
-                        <span class="font-mono text-slate-300">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">🎯 Precisión</span>
+                        <span class="text-base font-extrabold text-emerald-400 leading-tight mt-0.5">±${Math.round(dev.latest_point.accuracy || 0)} <span class="text-[10px] font-medium text-slate-400">m</span></span>
                     </div>
                 </div>
-                <div class="pt-1 flex space-x-1.5">
-                    <button onclick="renameDevice('${dev.id}', '${escapeHtml(dev.name || dev.id)}')" 
-                        class="flex-1 py-1 px-2 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center justify-center space-x-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
-                        <span>Renombrar</span>
+
+                <!-- Lista de información secundaria -->
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1.5 text-xs">
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 flex items-center space-x-1.5">
+                            <span>⛰️</span>
+                            <span>Altitud:</span>
+                        </span>
+                        <span class="font-medium text-slate-200">${Math.round(dev.latest_point.altitude || 0)} m</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-slate-400 flex items-center space-x-1.5">
+                            <span>🕒</span>
+                            <span>Última señal:</span>
+                        </span>
+                        <span class="font-medium text-slate-200">${new Date(dev.latest_point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    </div>
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
+                        <span class="text-slate-400 flex items-center space-x-1.5">
+                            <span>📍</span>
+                            <span>Coords:</span>
+                        </span>
+                        <span class="font-mono text-sky-300">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="flex space-x-2 pt-0.5">
+                    <button onclick="map.flyTo([${lat}, ${lng}], 17, { duration: 1 }); selectDevice('${dev.id}');" 
+                        class="flex-1 py-1.5 px-2.5 text-xs font-semibold bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-xl shadow-lg shadow-sky-600/20 transition flex items-center justify-center space-x-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <span>Centrar</span>
                     </button>
-                    <button onclick="selectDevice('${dev.id}')" 
-                        class="flex-1 py-1 px-2 text-[11px] font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex items-center justify-center space-x-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
-                        <span>Ver Ruta</span>
+                    <button onclick="renameDevice('${dev.id}', '${escapeHtml(dev.name || dev.id)}')" 
+                        class="flex-1 py-1.5 px-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl border border-slate-700 shadow transition flex items-center justify-center space-x-1.5">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        <span>Renombrar</span>
                     </button>
                 </div>
             </div>
@@ -379,11 +399,26 @@ async function loadRoute(deviceId, fitBounds = true) {
                 fillOpacity: 0.95
             });
             const startPopup = `
-                <div class="text-xs space-y-1 p-1">
-                    <div class="font-bold text-emerald-400">🟢 Punto de Inicio</div>
-                    <div><b>Hora:</b> ${startTimeStr}</div>
-                    <div><b>Altitud:</b> ${Math.round(firstPt.altitude || 0)} m</div>
-                    <div><b>Coordenadas:</b> ${firstPt.latitude.toFixed(5)}, ${firstPt.longitude.toFixed(5)}</div>
+                <div class="p-3 w-[265px] space-y-2">
+                    <div class="flex items-center justify-between pb-1.5 pr-8 border-b border-slate-700/80">
+                        <div class="flex items-center space-x-1.5 font-bold text-sm text-emerald-400">
+                            <span>🟢 Punto de Inicio</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1.5 text-xs text-slate-300">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">🕒 Hora de inicio:</span>
+                            <span class="font-semibold text-white">${startTimeStr}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">⛰️ Altitud:</span>
+                            <span class="font-semibold text-white">${Math.round(firstPt.altitude || 0)} m</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                            <span>Coords:</span>
+                            <span class="font-mono text-sky-300">${firstPt.latitude.toFixed(5)}, ${firstPt.longitude.toFixed(5)}</span>
+                        </div>
+                    </div>
                 </div>
             `;
             startMarker.bindPopup(startPopup);
@@ -435,11 +470,29 @@ async function loadRoute(deviceId, fitBounds = true) {
                         fillOpacity: 0.95
                     });
                     const stopPopup = `
-                        <div class="text-xs space-y-1 p-1">
-                            <div class="font-bold text-amber-400">🅿️ Detención / Parada</div>
-                            <div><b>Hora:</b> ${stopTimeStr}</div>
-                            <div><b>Duración estimada:</b> ${Math.round(diffMinutes)} minutos</div>
-                            <div><b>Coordenadas:</b> ${p1.latitude.toFixed(5)}, ${p1.longitude.toFixed(5)}</div>
+                        <div class="p-3 w-[275px] space-y-2">
+                            <div class="flex items-center justify-between pb-1.5 pr-8 border-b border-slate-700/80">
+                                <div class="flex items-center space-x-1.5 font-bold text-sm text-amber-400">
+                                    <span>🅿️ Detención / Parada</span>
+                                </div>
+                                <span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                                    ${Math.round(diffMinutes)} MIN
+                                </span>
+                            </div>
+                            <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1.5 text-xs text-slate-300">
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">🕒 Hora de parada:</span>
+                                    <span class="font-semibold text-white">${stopTimeStr}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-slate-400">⏳ Tiempo estacionado:</span>
+                                    <span class="font-semibold text-amber-300">${Math.round(diffMinutes)} minutos</span>
+                                </div>
+                                <div class="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                                    <span>Coords:</span>
+                                    <span class="font-mono text-sky-300">${p1.latitude.toFixed(5)}, ${p1.longitude.toFixed(5)}</span>
+                                </div>
+                            </div>
                         </div>
                     `;
                     stopMarker.bindPopup(stopPopup);
@@ -501,7 +554,33 @@ async function loadRoute(deviceId, fitBounds = true) {
                 opacity: 1,
                 fillOpacity: 0.95
             });
-            endMarker.bindPopup(`<b>🏁 Último Punto Registrado</b><br>Hora: ${endTimeStr}<br>Velocidad: ${lastSpeed} km/h<br>Precisión: ±${Math.round(lastPt.accuracy || 0)} m`);
+            endMarker.bindPopup(`
+                <div class="p-3 w-[265px] space-y-2">
+                    <div class="flex items-center justify-between pb-1.5 pr-8 border-b border-slate-700/80">
+                        <div class="flex items-center space-x-1.5 font-bold text-sm text-rose-400">
+                            <span>🏁 Fin de Ruta</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1.5 text-xs text-slate-300">
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">🕒 Hora final:</span>
+                            <span class="font-semibold text-white">${endTimeStr}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">⚡ Velocidad final:</span>
+                            <span class="font-semibold text-white">${lastSpeed} km/h</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-slate-400">🎯 Precisión:</span>
+                            <span class="font-semibold text-white">±${Math.round(lastPt.accuracy || 0)} m</span>
+                        </div>
+                        <div class="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                            <span>Coords:</span>
+                            <span class="font-mono text-sky-300">${lastPt.latitude.toFixed(5)}, ${lastPt.longitude.toFixed(5)}</span>
+                        </div>
+                    </div>
+                </div>
+            `);
             endMarker.bindTooltip(`🏁 Fin de Ruta (${endTimeStr})`, {
                 direction: 'bottom',
                 offset: [0, 8],
