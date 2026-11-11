@@ -2,7 +2,7 @@ import os
 import io
 import csv
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Request, Response, status, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
@@ -339,39 +339,96 @@ def ramer_douglas_peucker(points: list, epsilon: float = 0.00006) -> list:
     else:
         return [points[0], points[-1]]
 
+def apply_route_filters(
+    query,
+    start_ts: Optional[int] = None,
+    end_ts: Optional[int] = None,
+    date: Optional[str] = None,
+    start_hour: Optional[int] = None,
+    end_hour: Optional[int] = None,
+    start_time: Optional[str] = None,
+    end_time: Optional[str] = None,
+    tz_offset: Optional[int] = None,
+    hours: Optional[int] = None
+):
+    # 1. Prioridad: Timestamps absolutos en milisegundos UTC provistos por el navegador
+    if start_ts is not None and end_ts is not None:
+        return query.filter(LocationPoint.timestamp >= start_ts, LocationPoint.timestamp <= end_ts)
+
+    # 2. Si se proporciona fecha local y rango de horas/minutos
+    if date:
+        try:
+            target_date = datetime.strptime(date.strip(), "%Y-%m-%d")
+
+            # Parsear hora/minuto inicial
+            if start_time and ":" in start_time:
+                s_parts = start_time.split(":")
+                s_h, s_m = int(s_parts[0]), int(s_parts[1])
+            else:
+                s_h = start_hour if start_hour is not None else 0
+                s_m = 0
+
+            # Parsear hora/minuto final
+            if end_time and ":" in end_time:
+                e_parts = end_time.split(":")
+                e_h, e_m = int(e_parts[0]), int(e_parts[1])
+                e_s = 59
+            else:
+                e_h = end_hour if end_hour is not None else 23
+                e_m = 59
+                e_s = 59
+
+            local_start = target_date.replace(hour=s_h, minute=s_m, second=0, microsecond=0)
+            local_end = target_date.replace(hour=e_h, minute=e_m, second=e_s, microsecond=999999)
+
+            # Desfase de zona horaria del cliente en minutos (ej: Colombia UTC-5 es 300)
+            # UTC = Local + Offset
+            offset_mins = tz_offset if tz_offset is not None else 0
+            utc_start = local_start + timedelta(minutes=offset_mins)
+            utc_end = local_end + timedelta(minutes=offset_mins)
+
+            s_ms = int(utc_start.replace(tzinfo=timezone.utc).timestamp() * 1000)
+            e_ms = int(utc_end.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+            return query.filter(LocationPoint.timestamp >= s_ms, LocationPoint.timestamp <= e_ms)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Parámetros de fecha u hora inválidos")
+
+    # 3. Rango de últimas N horas relativas
+    h = hours or 24
+    since_timestamp = int((datetime.utcnow() - timedelta(hours=h)).timestamp() * 1000)
+    return query.filter(LocationPoint.timestamp >= since_timestamp)
+
 @app.get("/api/v1/devices/{device_id}/route")
 def get_device_route(
     device_id: str,
+    start_ts: Optional[int] = Query(None),
+    end_ts: Optional[int] = Query(None),
     date: Optional[str] = Query(None), # Formato YYYY-MM-DD
     start_hour: Optional[int] = Query(None, ge=0, le=23),
     end_hour: Optional[int] = Query(None, ge=0, le=23),
+    start_time: Optional[str] = Query(None), # Formato HH:MM
+    end_time: Optional[str] = Query(None), # Formato HH:MM
+    tz_offset: Optional[int] = Query(None), # Minutos de desfase con UTC
     hours: Optional[int] = Query(None, ge=1, le=168), # Por defecto últimas N horas si no hay fecha
     simplify: bool = Query(True), # Compresión inteligente con RDP
-    limit: int = Query(5000, le=10000),
+    limit: int = Query(10000, le=25000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     query = db.query(LocationPoint).filter(LocationPoint.device_id == device_id)
-
-    if date:
-        try:
-            target_date = datetime.strptime(date.strip(), "%Y-%m-%d")
-            s_hour = start_hour if start_hour is not None else 0
-            e_hour = end_hour if end_hour is not None else 23
-
-            start_dt = target_date.replace(hour=s_hour, minute=0, second=0, microsecond=0)
-            end_dt = target_date.replace(hour=e_hour, minute=59, second=59, microsecond=999999)
-
-            start_ts = int(start_dt.timestamp() * 1000)
-            end_ts = int(end_dt.timestamp() * 1000)
-
-            query = query.filter(LocationPoint.timestamp >= start_ts, LocationPoint.timestamp <= end_ts)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
-    else:
-        h = hours or 24
-        since_timestamp = int((datetime.utcnow() - timedelta(hours=h)).timestamp() * 1000)
-        query = query.filter(LocationPoint.timestamp >= since_timestamp)
+    query = apply_route_filters(
+        query,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        date=date,
+        start_hour=start_hour,
+        end_hour=end_hour,
+        start_time=start_time,
+        end_time=end_time,
+        tz_offset=tz_offset,
+        hours=hours
+    )
 
     points = query.order_by(LocationPoint.timestamp.asc()).limit(limit).all()
 
@@ -431,9 +488,14 @@ def get_device_route(
 @app.get("/api/v1/devices/{device_id}/export/csv")
 def export_route_csv(
     device_id: str,
+    start_ts: Optional[int] = Query(None),
+    end_ts: Optional[int] = Query(None),
     date: Optional[str] = Query(None),
     start_hour: Optional[int] = Query(None, ge=0, le=23),
     end_hour: Optional[int] = Query(None, ge=0, le=23),
+    start_time: Optional[str] = Query(None),
+    end_time: Optional[str] = Query(None),
+    tz_offset: Optional[int] = Query(None),
     hours: Optional[int] = Query(None, ge=1, le=168),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -443,27 +505,32 @@ def export_route_csv(
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
     query = db.query(LocationPoint).filter(LocationPoint.device_id == device_id)
-    if date:
-        target_date = datetime.strptime(date.strip(), "%Y-%m-%d")
-        s_hour = start_hour if start_hour is not None else 0
-        e_hour = end_hour if end_hour is not None else 23
-        start_ts = int(target_date.replace(hour=s_hour, minute=0, second=0).timestamp() * 1000)
-        end_ts = int(target_date.replace(hour=e_hour, minute=59, second=59).timestamp() * 1000)
-        query = query.filter(LocationPoint.timestamp >= start_ts, LocationPoint.timestamp <= end_ts)
-    else:
-        h = hours or 24
-        since_timestamp = int((datetime.utcnow() - timedelta(hours=h)).timestamp() * 1000)
-        query = query.filter(LocationPoint.timestamp >= since_timestamp)
+    query = apply_route_filters(
+        query,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        date=date,
+        start_hour=start_hour,
+        end_hour=end_hour,
+        start_time=start_time,
+        end_time=end_time,
+        tz_offset=tz_offset,
+        hours=hours
+    )
 
     points = query.order_by(LocationPoint.timestamp.asc()).all()
 
     output = io.StringIO()
     output.write("\ufeff") # BOM para soporte nativo en Excel español
     writer = csv.writer(output)
-    writer.writerow(["Móvil", "Fecha y Hora (UTC)", "Latitud", "Longitud", "Altitud (m)", "Velocidad (km/h)", "Rumbo (°)", "Precisión (m)"])
+    writer.writerow(["Móvil", "Fecha y Hora", "Latitud", "Longitud", "Altitud (m)", "Velocidad (km/h)", "Rumbo (°)", "Precisión (m)"])
+
+    offset_delta = timedelta(minutes=tz_offset) if tz_offset is not None else timedelta(0)
 
     for p in points:
-        dt_str = datetime.utcfromtimestamp(p.timestamp / 1000.0).strftime("%Y-%m-%d %H:%M:%S")
+        utc_dt = datetime.utcfromtimestamp(p.timestamp / 1000.0)
+        local_dt = utc_dt - offset_delta
+        dt_str = local_dt.strftime("%Y-%m-%d %H:%M:%S")
         speed_kmh = round((p.speed or 0.0) * 3.6, 1)
         writer.writerow([
             device.name or device.id,
@@ -487,9 +554,14 @@ def export_route_csv(
 @app.get("/api/v1/devices/{device_id}/export/gpx")
 def export_route_gpx(
     device_id: str,
+    start_ts: Optional[int] = Query(None),
+    end_ts: Optional[int] = Query(None),
     date: Optional[str] = Query(None),
     start_hour: Optional[int] = Query(None, ge=0, le=23),
     end_hour: Optional[int] = Query(None, ge=0, le=23),
+    start_time: Optional[str] = Query(None),
+    end_time: Optional[str] = Query(None),
+    tz_offset: Optional[int] = Query(None),
     hours: Optional[int] = Query(None, ge=1, le=168),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -499,17 +571,18 @@ def export_route_gpx(
         raise HTTPException(status_code=404, detail="Dispositivo no encontrado")
 
     query = db.query(LocationPoint).filter(LocationPoint.device_id == device_id)
-    if date:
-        target_date = datetime.strptime(date.strip(), "%Y-%m-%d")
-        s_hour = start_hour if start_hour is not None else 0
-        e_hour = end_hour if end_hour is not None else 23
-        start_ts = int(target_date.replace(hour=s_hour, minute=0, second=0).timestamp() * 1000)
-        end_ts = int(target_date.replace(hour=e_hour, minute=59, second=59).timestamp() * 1000)
-        query = query.filter(LocationPoint.timestamp >= start_ts, LocationPoint.timestamp <= end_ts)
-    else:
-        h = hours or 24
-        since_timestamp = int((datetime.utcnow() - timedelta(hours=h)).timestamp() * 1000)
-        query = query.filter(LocationPoint.timestamp >= since_timestamp)
+    query = apply_route_filters(
+        query,
+        start_ts=start_ts,
+        end_ts=end_ts,
+        date=date,
+        start_hour=start_hour,
+        end_hour=end_hour,
+        start_time=start_time,
+        end_time=end_time,
+        tz_offset=tz_offset,
+        hours=hours
+    )
 
     points = query.order_by(LocationPoint.timestamp.asc()).all()
 

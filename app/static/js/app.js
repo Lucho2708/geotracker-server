@@ -177,18 +177,22 @@ function handleLiveMessage(data) {
             updateTelemetryBox(dev);
             updateMobileSheet(dev);
 
-            const lat = data.latest_point.latitude;
-            const lng = data.latest_point.longitude;
+            // Solo anexamos a la polilínea si estamos en modo reciente/vivo ('quick')
+            // para no alterar la visualización de un filtro histórico por fecha y hora
+            if (currentFilterMode === 'quick') {
+                const lat = data.latest_point.latitude;
+                const lng = data.latest_point.longitude;
 
-            if (currentPolyline) {
-                currentPolyline.addLatLng([lat, lng]);
-            }
-            currentRoutePoints.push(data.latest_point);
-            currentAllRoutePoints.push(data.latest_point);
+                if (currentPolyline) {
+                    currentPolyline.addLatLng([lat, lng]);
+                }
+                currentRoutePoints.push(data.latest_point);
+                currentAllRoutePoints.push(data.latest_point);
 
-            const pointsCountElem = document.getElementById('routePointsCount');
-            if (pointsCountElem) {
-                pointsCountElem.innerText = `${currentAllRoutePoints.length} puntos`;
+                const pointsCountElem = document.getElementById('routePointsCount');
+                if (pointsCountElem) {
+                    pointsCountElem.innerText = `${currentAllRoutePoints.length} puntos`;
+                }
             }
         }
     } else if (data.type === 'heartbeat') {
@@ -499,9 +503,24 @@ async function loadRoute(deviceId, fitBounds = true) {
     let queryUrl = `/api/v1/devices/${deviceId}/route`;
     if (currentFilterMode === 'date') {
         const filterDate = document.getElementById('filterDate').value;
-        const startHour = document.getElementById('startHour').value;
-        const endHour = document.getElementById('endHour').value;
-        queryUrl += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}&simplify=true`;
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const startTime = startTimeInput ? startTimeInput.value : '00:00';
+        const endTime = endTimeInput ? endTimeInput.value : '23:59';
+
+        const [sH, sM] = (startTime || '00:00').split(':').map(Number);
+        const [eH, eM] = (endTime || '23:59').split(':').map(Number);
+        const [yr, mo, da] = (filterDate || new Date().toISOString().split('T')[0]).split('-').map(Number);
+
+        // Convertir la fecha y hora seleccionada en la zona horaria local del navegador a milisegundos UTC exactos
+        const startObj = new Date(yr, mo - 1, da, sH || 0, sM || 0, 0, 0);
+        const endObj = new Date(yr, mo - 1, da, eH || 23, eM || 59, 59, 999);
+
+        const startTs = startObj.getTime();
+        const endTs = endObj.getTime();
+        const tzOffset = new Date().getTimezoneOffset();
+
+        queryUrl += `?start_ts=${startTs}&end_ts=${endTs}&date=${encodeURIComponent(filterDate)}&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}&tz_offset=${tzOffset}&simplify=true`;
     } else {
         const hours = document.getElementById('timeRange').value;
         queryUrl += `?hours=${hours}&simplify=true`;
@@ -951,6 +970,19 @@ function cyclePlaybackSpeed() {
 }
 
 // ====================================================================
+// ATAJOS RÁPIDOS DE HORARIOS
+// ====================================================================
+function setFilterTimeShortcut(startTime, endTime) {
+    const sInput = document.getElementById('startTime');
+    const eInput = document.getElementById('endTime');
+    if (sInput) sInput.value = startTime;
+    if (eInput) eInput.value = endTime;
+    if (selectedDeviceId) {
+        loadRoute(selectedDeviceId, true);
+    }
+}
+
+// ====================================================================
 // EXPORTACIÓN DE RUTAS (CSV Y GPX)
 // ====================================================================
 function exportCurrentRoute(format) {
@@ -962,9 +994,23 @@ function exportCurrentRoute(format) {
     let url = `/api/v1/devices/${selectedDeviceId}/export/${format}`;
     if (currentFilterMode === 'date') {
         const filterDate = document.getElementById('filterDate').value;
-        const startHour = document.getElementById('startHour').value;
-        const endHour = document.getElementById('endHour').value;
-        url += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}`;
+        const startTimeInput = document.getElementById('startTime');
+        const endTimeInput = document.getElementById('endTime');
+        const startTime = startTimeInput ? startTimeInput.value : '00:00';
+        const endTime = endTimeInput ? endTimeInput.value : '23:59';
+
+        const [sH, sM] = (startTime || '00:00').split(':').map(Number);
+        const [eH, eM] = (endTime || '23:59').split(':').map(Number);
+        const [yr, mo, da] = (filterDate || new Date().toISOString().split('T')[0]).split('-').map(Number);
+
+        const startObj = new Date(yr, mo - 1, da, sH || 0, sM || 0, 0, 0);
+        const endObj = new Date(yr, mo - 1, da, eH || 23, eM || 59, 59, 999);
+
+        const startTs = startObj.getTime();
+        const endTs = endObj.getTime();
+        const tzOffset = new Date().getTimezoneOffset();
+
+        url += `?start_ts=${startTs}&end_ts=${endTs}&date=${encodeURIComponent(filterDate)}&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}&tz_offset=${tzOffset}`;
     } else {
         const hours = document.getElementById('timeRange').value;
         url += `?hours=${hours}`;
@@ -1173,19 +1219,21 @@ window.addEventListener('DOMContentLoaded', () => {
     setupAutoRefresh();
     setupMobileTabs();
 
-    // Inicializar selectores de horas (00:00 a 23:00)
+    // Inicializar selectores de horas si existen
     const startHourSelect = document.getElementById('startHour');
     const endHourSelect = document.getElementById('endHour');
-    for (let h = 0; h < 24; h++) {
-        const val = h.toString().padStart(2, '0') + ':00';
-        startHourSelect.innerHTML += `<option value="${h}" ${h === 0 ? 'selected' : ''}>${val}</option>`;
-        endHourSelect.innerHTML += `<option value="${h}" ${h === 23 ? 'selected' : ''}>${val}</option>`;
+    if (startHourSelect && endHourSelect) {
+        for (let h = 0; h < 24; h++) {
+            const val = h.toString().padStart(2, '0') + ':00';
+            startHourSelect.innerHTML += `<option value="${h}" ${h === 0 ? 'selected' : ''}>${val}</option>`;
+            endHourSelect.innerHTML += `<option value="${h}" ${h === 23 ? 'selected' : ''}>${val}</option>`;
+        }
     }
 
-    // Inicializar selector de fecha con la fecha de hoy
-    const today = new Date().toISOString().split('T')[0];
+    // Inicializar selector de fecha con la fecha local de hoy (YYYY-MM-DD)
+    const today = new Date().toLocaleDateString('en-CA');
     const filterDateInput = document.getElementById('filterDate');
-    if (filterDateInput) filterDateInput.value = today;
+    if (filterDateInput && !filterDateInput.value) filterDateInput.value = today;
 
     // Cambiar entre Modo Rápido y Modo por Fecha
     const btnQuick = document.getElementById('btnModeQuick');

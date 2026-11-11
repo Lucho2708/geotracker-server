@@ -79,21 +79,29 @@
             <!-- Panel Filtro por Día y Horas -->
             <div id="filterDatePanel" class="hidden space-y-2 pt-1 border-t border-slate-800/80">
                 <div class="flex items-center justify-between">
-                    <label for="filterDate" class="text-slate-400 text-[11px]">Fecha:</label>
-                    <input type="date" id="filterDate" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-2 py-0.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+                    <label for="filterDate" class="text-slate-400 text-[11px] font-medium">Fecha:</label>
+                    <input type="date" id="filterDate" class="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2 py-0.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
                 </div>
-                <div class="flex items-center justify-between space-x-2">
+                <div class="flex items-center justify-between space-x-1.5">
                     <div class="flex items-center space-x-1">
                         <span class="text-slate-400 text-[10px]">De:</span>
-                        <select id="startHour" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-[11px]"></select>
+                        <input type="time" id="startTime" value="00:00" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none w-[78px]">
                     </div>
                     <div class="flex items-center space-x-1">
                         <span class="text-slate-400 text-[10px]">A:</span>
-                        <select id="endHour" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-[11px]"></select>
+                        <input type="time" id="endTime" value="23:59" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none w-[78px]">
                     </div>
-                    <button id="btnApplyDateFilter" class="bg-sky-600 hover:bg-sky-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+                    <button id="btnApplyDateFilter" class="bg-sky-600 hover:bg-sky-500 active:scale-95 text-white px-3 py-1 rounded text-xs font-bold transition shadow shadow-sky-600/30 flex-shrink-0">
                         Buscar
                     </button>
+                </div>
+                <!-- Atajos rápidos de fracciones horarias -->
+                <div class="flex items-center space-x-1 text-[9px] pt-0.5">
+                    <span class="text-slate-500">Atajos:</span>
+                    <button type="button" onclick="setFilterTimeShortcut('00:00', '23:59')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">Todo el día</button>
+                    <button type="button" onclick="setFilterTimeShortcut('06:00', '12:00')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">6-12h</button>
+                    <button type="button" onclick="setFilterTimeShortcut('12:00', '18:00')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">12-18h</button>
+                    <button type="button" onclick="setFilterTimeShortcut('18:00', '23:59')" class="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700 transition">18-24h</button>
                 </div>
             </div>
         </div>
