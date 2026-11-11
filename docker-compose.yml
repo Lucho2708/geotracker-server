@@ -1,12 +1,9 @@
-version: "3.8"
-
 services:
   geotracker-server:
     build: .
-    container_name: geotracker-server
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       - SECRET_KEY=cambiar_esta_clave_secreta_en_produccion_123456
       - DATABASE_URL=sqlite:////app/data/geotracker.db
@@ -18,4 +15,3 @@ services:
 
 volumes:
   geotracker_data:
-    driver: local
