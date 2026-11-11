@@ -42,3 +42,14 @@ class LocationPoint(Base):
     __table_args__ = (
         Index("idx_device_timestamp", "device_id", "timestamp"),
     )
+
+class Geofence(Base):
+    __tablename__ = "geofences"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)
+    latitude = Column(Float, nullable=False)
+    longitude = Column(Float, nullable=False)
+    radius = Column(Float, default=150.0) # radio en metros
+    color = Column(String(30), default="#38bdf8")
+    created_at = Column(DateTime, default=datetime.utcnow)

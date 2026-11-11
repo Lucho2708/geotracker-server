@@ -3,11 +3,25 @@ let map = null;
 let currentPolyline = null;
 let currentMarkersGroup = null;
 let routeEndpointsGroup = null;
+let geofencesGroup = null;
 let selectedDeviceId = null;
 let devicesCache = [];
 let autoRefreshTimer = null;
 let currentFilterMode = 'quick'; // 'quick' o 'date'
 let showLabels = true; // Control de visibilidad de etiquetas permanentes
+let showGeofences = true; // Visibilidad de geocercas
+let geofencesCache = [];
+let wsConnection = null;
+
+// Variables del Simulador y Reproductor de Rutas
+let currentRoutePoints = [];
+let currentAllRoutePoints = [];
+let playbackInterval = null;
+let playbackIndex = 0;
+let playbackSpeed = 1;
+const speedOptions = [1, 2, 5, 10];
+let isPlaying = false;
+let playbackMarker = null;
 
 // Inicialización del Mapa Leaflet
 function initMap() {
@@ -44,8 +58,18 @@ function initMap() {
     };
     L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
+    geofencesGroup = L.layerGroup().addTo(map);
     currentMarkersGroup = L.layerGroup().addTo(map);
     routeEndpointsGroup = L.layerGroup().addTo(map);
+
+    // Clic en el mapa para posicionar centro al crear geocerca si el modal está abierto
+    map.on('click', (e) => {
+        const modal = document.getElementById('geofenceModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            pendingGfLatLng = [e.latlng.lat, e.latlng.lng];
+            document.getElementById('gfCoordsDisplay').innerText = `${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`;
+        }
+    });
 }
 
 // Cargar Dispositivos desde el API
@@ -73,6 +97,107 @@ async function loadDevices() {
         }
     } catch (e) {
         console.error("Error cargando dispositivos:", e);
+    }
+}
+
+// ====================================================================
+// WEBSOCKET: TRANSMISIÓN Y RECEPCIÓN EN TIEMPO REAL PURO
+// ====================================================================
+function initWebSocket() {
+    try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+        wsConnection = new WebSocket(wsUrl);
+
+        wsConnection.onopen = () => {
+            const dot = document.getElementById('wsStatusDot');
+            const txt = document.getElementById('wsStatusText');
+            if (dot) {
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                dot.title = 'Conexión WebSocket activa en tiempo real';
+            }
+            if (txt) {
+                txt.innerText = 'LIVE';
+                txt.className = 'text-[9px] font-bold text-emerald-400 tracking-wider';
+            }
+        };
+
+        wsConnection.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleLiveMessage(data);
+            } catch (err) {
+                console.error("Error procesando mensaje WebSocket:", err);
+            }
+        };
+
+        wsConnection.onclose = () => {
+            const dot = document.getElementById('wsStatusDot');
+            const txt = document.getElementById('wsStatusText');
+            if (dot) {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                dot.title = 'Reconectando con el servidor...';
+            }
+            if (txt) {
+                txt.innerText = 'RECON';
+                txt.className = 'text-[9px] font-bold text-amber-400 tracking-wider';
+            }
+            setTimeout(initWebSocket, 4000);
+        };
+
+        wsConnection.onerror = () => {
+            if (wsConnection) wsConnection.close();
+        };
+    } catch (e) {
+        console.error("No se pudo inicializar WebSocket:", e);
+    }
+}
+
+function handleLiveMessage(data) {
+    if (data.type === 'new_location') {
+        const devId = data.device_id;
+        let dev = devicesCache.find(d => d.id === devId);
+        if (!dev) {
+            // Dispositivo recién registrado, recargamos la lista
+            loadDevices();
+            return;
+        }
+
+        // Actualizamos estado y punto más reciente
+        dev.latest_point = data.latest_point;
+        dev.is_online = true;
+        dev.last_seen = new Date(data.latest_point.timestamp).toISOString();
+        if (data.device_name) dev.name = data.device_name;
+
+        renderDeviceList(devicesCache);
+        renderDeviceMarkers(devicesCache);
+
+        // Si es el dispositivo actualmente seleccionado en pantalla
+        if (selectedDeviceId === devId) {
+            updateTelemetryBox(dev);
+            updateMobileSheet(dev);
+
+            const lat = data.latest_point.latitude;
+            const lng = data.latest_point.longitude;
+
+            if (currentPolyline) {
+                currentPolyline.addLatLng([lat, lng]);
+            }
+            currentRoutePoints.push(data.latest_point);
+            currentAllRoutePoints.push(data.latest_point);
+
+            const pointsCountElem = document.getElementById('routePointsCount');
+            if (pointsCountElem) {
+                pointsCountElem.innerText = `${currentAllRoutePoints.length} puntos`;
+            }
+        }
+    } else if (data.type === 'heartbeat') {
+        const dev = devicesCache.find(d => d.id === data.device_id);
+        if (dev) {
+            dev.is_online = true;
+            dev.last_seen = data.last_seen;
+            renderDeviceList(devicesCache);
+        }
     }
 }
 
@@ -376,17 +501,21 @@ async function loadRoute(deviceId, fitBounds = true) {
         const filterDate = document.getElementById('filterDate').value;
         const startHour = document.getElementById('startHour').value;
         const endHour = document.getElementById('endHour').value;
-        queryUrl += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}`;
+        queryUrl += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}&simplify=true`;
     } else {
         const hours = document.getElementById('timeRange').value;
-        queryUrl += `?hours=${hours}`;
+        queryUrl += `?hours=${hours}&simplify=true`;
     }
 
     try {
         const res = await fetch(queryUrl);
         const data = await res.json();
         const points = data.points || [];
+        const allPoints = data.all_points || points;
         const stats = data.stats || {};
+
+        currentRoutePoints = points;
+        currentAllRoutePoints = allPoints;
 
         if (currentPolyline) {
             map.removeLayer(currentPolyline);
@@ -400,7 +529,12 @@ async function loadRoute(deviceId, fitBounds = true) {
         const pointsCountElem = document.getElementById('routePointsCount');
         if (totalDistElem) totalDistElem.innerText = `${stats.total_distance_km || 0.0} km`;
         if (maxSpeedElem) maxSpeedElem.innerText = `${stats.max_speed_kmh || 0} km/h`;
-        if (pointsCountElem) pointsCountElem.innerText = `${stats.total_points || 0} puntos`;
+        if (pointsCountElem) pointsCountElem.innerText = `${stats.total_points || allPoints.length} puntos`;
+
+        // Si el simulador de ruta estaba activo, actualizar su total
+        if (isPlaying) {
+            stopPlayback();
+        }
 
         if (points.length === 0) return;
 
@@ -680,6 +814,308 @@ function escapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+// ====================================================================
+// MOTOR DE SIMULACIÓN Y REPRODUCCIÓN DE RUTA
+// ====================================================================
+function startPlaybackUI() {
+    if (!currentAllRoutePoints || currentAllRoutePoints.length < 2) {
+        alert("Se requieren al menos 2 puntos GPS registrados en este periodo para iniciar la simulación.");
+        return;
+    }
+
+    const dev = devicesCache.find(d => d.id === selectedDeviceId);
+    const devName = dev ? (dev.name || dev.id) : (selectedDeviceId || 'Móvil');
+
+    const devNameElem = document.getElementById('playbackDevName');
+    if (devNameElem) devNameElem.innerText = devName;
+
+    const bar = document.getElementById('routePlaybackBar');
+    if (bar) bar.classList.remove('hidden');
+
+    // Cerrar bottom sheet móvil para despejar la vista
+    closeMobileSheet();
+
+    const scrubber = document.getElementById('playbackScrubber');
+    if (scrubber) {
+        scrubber.min = 0;
+        scrubber.max = currentAllRoutePoints.length - 1;
+        scrubber.value = 0;
+    }
+    playbackIndex = 0;
+
+    // Crear marcador de simulación si no existe
+    if (!playbackMarker) {
+        const carIcon = L.divIcon({
+            className: 'playback-moving-marker',
+            html: `
+                <div style="width: 28px; height: 28px; background: #0284c7; border: 2px solid #ffffff; border-radius: 50%; box-shadow: 0 0 16px #38bdf8; display: flex; align-items: center; justify-content: center; font-size: 14px; color: white;">
+                    🚗
+                </div>
+            `,
+            iconSize: [28, 28],
+            iconAnchor: [14, 14]
+        });
+        playbackMarker = L.marker([currentAllRoutePoints[0].latitude, currentAllRoutePoints[0].longitude], {
+            icon: carIcon,
+            zIndexOffset: 1500
+        }).addTo(map);
+    } else {
+        playbackMarker.setLatLng([currentAllRoutePoints[0].latitude, currentAllRoutePoints[0].longitude]);
+        playbackMarker.addTo(map);
+    }
+
+    updatePlaybackFrame(0);
+    playPlayback();
+}
+
+function updatePlaybackFrame(index) {
+    if (!currentAllRoutePoints || index < 0 || index >= currentAllRoutePoints.length) return;
+    playbackIndex = index;
+
+    const pt = currentAllRoutePoints[index];
+    const latLng = [pt.latitude, pt.longitude];
+
+    if (playbackMarker) {
+        playbackMarker.setLatLng(latLng);
+    }
+
+    // Actualizar scrubber
+    const scrubber = document.getElementById('playbackScrubber');
+    if (scrubber) scrubber.value = index;
+
+    // Actualizar hora y velocidad
+    const timeElem = document.getElementById('playbackCurrentTime');
+    const speedElem = document.getElementById('playbackCurrentSpeed');
+    if (timeElem) timeElem.innerText = formatShortTime(pt.timestamp);
+    if (speedElem) {
+        const spd = Math.round((pt.speed || 0) * 3.6);
+        speedElem.innerText = `${spd} km/h`;
+    }
+
+    // Si el punto está fuera de los límites de la pantalla, mover suavemente el mapa
+    if (map && !map.getBounds().contains(latLng)) {
+        map.panTo(latLng, { animate: true, duration: 0.4 });
+    }
+}
+
+function playPlayback() {
+    isPlaying = true;
+    document.getElementById('iconPlay')?.classList.add('hidden');
+    document.getElementById('iconPause')?.classList.remove('hidden');
+
+    if (playbackInterval) clearInterval(playbackInterval);
+
+    // Velocidad base
+    const intervalMs = Math.max(70, Math.round(550 / playbackSpeed));
+    playbackInterval = setInterval(() => {
+        if (playbackIndex < currentAllRoutePoints.length - 1) {
+            playbackIndex++;
+            updatePlaybackFrame(playbackIndex);
+        } else {
+            pausePlayback();
+        }
+    }, intervalMs);
+}
+
+function pausePlayback() {
+    isPlaying = false;
+    document.getElementById('iconPlay')?.classList.remove('hidden');
+    document.getElementById('iconPause')?.classList.add('hidden');
+    if (playbackInterval) {
+        clearInterval(playbackInterval);
+        playbackInterval = null;
+    }
+}
+
+function stopPlayback() {
+    pausePlayback();
+    if (playbackMarker) {
+        map.removeLayer(playbackMarker);
+        playbackMarker = null;
+    }
+    const bar = document.getElementById('routePlaybackBar');
+    if (bar) bar.classList.add('hidden');
+}
+
+function cyclePlaybackSpeed() {
+    const currentIndex = speedOptions.indexOf(playbackSpeed);
+    const nextIndex = (currentIndex + 1) % speedOptions.length;
+    playbackSpeed = speedOptions[nextIndex];
+
+    const badge = document.getElementById('playbackSpeedBadge');
+    if (badge) badge.innerText = `${playbackSpeed}x`;
+
+    if (isPlaying) {
+        playPlayback();
+    }
+}
+
+// ====================================================================
+// EXPORTACIÓN DE RUTAS (CSV Y GPX)
+// ====================================================================
+function exportCurrentRoute(format) {
+    if (!selectedDeviceId) {
+        alert("Selecciona primero un dispositivo de la lista.");
+        return;
+    }
+
+    let url = `/api/v1/devices/${selectedDeviceId}/export/${format}`;
+    if (currentFilterMode === 'date') {
+        const filterDate = document.getElementById('filterDate').value;
+        const startHour = document.getElementById('startHour').value;
+        const endHour = document.getElementById('endHour').value;
+        url += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}`;
+    } else {
+        const hours = document.getElementById('timeRange').value;
+        url += `?hours=${hours}`;
+    }
+
+    window.open(url, '_blank');
+}
+
+// ====================================================================
+// GEOCERCAS / ZONAS SEGURAS (GEOFENCING)
+// ====================================================================
+let activeGfColor = '#38bdf8';
+let pendingGfLatLng = null;
+
+async function loadGeofences() {
+    try {
+        const res = await fetch('/api/v1/geofences');
+        if (!res.ok) return;
+        geofencesCache = await res.json();
+        renderGeofences();
+    } catch (e) {
+        console.error("Error cargando geocercas:", e);
+    }
+}
+
+function renderGeofences() {
+    if (!geofencesGroup) return;
+    geofencesGroup.clearLayers();
+
+    if (!showGeofences) return;
+
+    geofencesCache.forEach(gf => {
+        const circle = L.circle([gf.latitude, gf.longitude], {
+            radius: gf.radius,
+            color: gf.color || '#38bdf8',
+            fillColor: gf.color || '#38bdf8',
+            fillOpacity: 0.18,
+            weight: 2,
+            dashArray: '6, 6'
+        });
+
+        const popupContent = `
+            <div class="p-2.5 w-[220px] space-y-2 text-xs">
+                <div class="flex items-center space-x-1.5 font-bold text-sm text-sky-400 pb-1 border-b border-slate-700">
+                    <span>🛡️</span>
+                    <span class="truncate">${escapeHtml(gf.name)}</span>
+                </div>
+                <div class="text-slate-300 space-y-1">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Radio:</span>
+                        <span class="font-bold text-white">${Math.round(gf.radius)} metros</span>
+                    </div>
+                    <div class="flex justify-between text-[10px]">
+                        <span class="text-slate-400">Coords:</span>
+                        <span class="font-mono text-sky-300">${gf.latitude.toFixed(5)}, ${gf.longitude.toFixed(5)}</span>
+                    </div>
+                </div>
+                <button onclick="deleteGeofence(${gf.id})" 
+                    class="w-full py-1.5 px-2 bg-rose-600/20 hover:bg-rose-600 active:scale-95 border border-rose-500/40 text-rose-300 hover:text-white rounded-lg text-xs font-semibold transition flex items-center justify-center space-x-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <span>Eliminar Geocerca</span>
+                </button>
+            </div>
+        `;
+        circle.bindPopup(popupContent, { minWidth: 200, maxWidth: 260 });
+
+        if (showLabels) {
+            circle.bindTooltip(`🛡️ ${escapeHtml(gf.name)} (${Math.round(gf.radius)}m)`, {
+                permanent: false,
+                direction: 'center',
+                className: 'custom-map-tooltip'
+            });
+        }
+
+        geofencesGroup.addLayer(circle);
+    });
+}
+
+function openGeofenceModal(lat, lng) {
+    if (lat && lng) {
+        pendingGfLatLng = [lat, lng];
+    } else {
+        const dev = devicesCache.find(d => d.id === selectedDeviceId);
+        if (dev && dev.latest_point) {
+            pendingGfLatLng = [dev.latest_point.latitude, dev.latest_point.longitude];
+        } else {
+            const center = map.getCenter();
+            pendingGfLatLng = [center.lat, center.lng];
+        }
+    }
+
+    document.getElementById('gfCoordsDisplay').innerText = `${pendingGfLatLng[0].toFixed(5)}, ${pendingGfLatLng[1].toFixed(5)}`;
+    document.getElementById('gfInputName').value = '';
+    document.getElementById('gfInputRadius').value = 150;
+    document.getElementById('gfRadiusValue').innerText = '150 metros';
+    document.getElementById('geofenceModal').classList.remove('hidden');
+}
+
+function closeGeofenceModal() {
+    document.getElementById('geofenceModal').classList.add('hidden');
+    pendingGfLatLng = null;
+}
+
+async function saveGeofence() {
+    const nameInput = document.getElementById('gfInputName');
+    const name = nameInput.value.trim();
+    if (!name) {
+        alert("Ingresa un nombre para la geocerca.");
+        nameInput.focus();
+        return;
+    }
+
+    const radius = parseFloat(document.getElementById('gfInputRadius').value) || 150.0;
+    if (!pendingGfLatLng) return;
+
+    try {
+        const res = await fetch('/api/v1/geofences', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name: name,
+                latitude: pendingGfLatLng[0],
+                longitude: pendingGfLatLng[1],
+                radius: radius,
+                color: activeGfColor
+            })
+        });
+
+        if (res.ok) {
+            closeGeofenceModal();
+            await loadGeofences();
+        } else {
+            alert("No se pudo guardar la geocerca.");
+        }
+    } catch (e) {
+        alert("Error al guardar la geocerca.");
+    }
+}
+
+async function deleteGeofence(id) {
+    if (!confirm("¿Deseas eliminar esta geocerca?")) return;
+    try {
+        const res = await fetch(`/api/v1/geofences/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            await loadGeofences();
+        }
+    } catch (e) {
+        alert("Error al eliminar la geocerca.");
+    }
+}
+
 // Configurar temporizador de auto-refresco
 function setupAutoRefresh() {
     const checkbox = document.getElementById('autoRefresh');
@@ -732,6 +1168,8 @@ function setupMobileTabs() {
 window.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadDevices();
+    loadGeofences();
+    initWebSocket();
     setupAutoRefresh();
     setupMobileTabs();
 
@@ -773,12 +1211,82 @@ window.addEventListener('DOMContentLoaded', () => {
         if (selectedDeviceId) loadRoute(selectedDeviceId, true);
     });
 
-    document.getElementById('btnApplyDateFilter').addEventListener('click', () => {
+    document.getElementById('btnApplyDateFilter')?.addEventListener('click', () => {
         if (selectedDeviceId) loadRoute(selectedDeviceId, true);
     });
 
-    document.getElementById('refreshBtn').addEventListener('click', () => {
+    document.getElementById('refreshBtn')?.addEventListener('click', () => {
         loadDevices();
+    });
+
+    // Botones de Simulación / Reproducción de Ruta
+    document.getElementById('btnStartPlayback')?.addEventListener('click', () => {
+        startPlaybackUI();
+    });
+
+    document.getElementById('btnPlayPause')?.addEventListener('click', () => {
+        if (isPlaying) {
+            pausePlayback();
+        } else {
+            playPlayback();
+        }
+    });
+
+    document.getElementById('btnCycleSpeed')?.addEventListener('click', () => {
+        cyclePlaybackSpeed();
+    });
+
+    document.getElementById('btnClosePlayback')?.addEventListener('click', () => {
+        stopPlayback();
+    });
+
+    document.getElementById('playbackScrubber')?.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        updatePlaybackFrame(val);
+    });
+
+    // Botones de Exportación de Recorrido
+    document.getElementById('btnExportCSV')?.addEventListener('click', () => {
+        exportCurrentRoute('csv');
+    });
+
+    document.getElementById('btnExportGPX')?.addEventListener('click', () => {
+        exportCurrentRoute('gpx');
+    });
+
+    // Botones y Eventos de Geocercas
+    document.getElementById('btnAddGeofence')?.addEventListener('click', () => {
+        openGeofenceModal();
+    });
+
+    document.getElementById('btnToggleGeofences')?.addEventListener('click', () => {
+        showGeofences = !showGeofences;
+        const btn = document.getElementById('btnToggleGeofences');
+        if (showGeofences) {
+            btn.classList.add('text-sky-400');
+            btn.classList.remove('text-slate-500');
+        } else {
+            btn.classList.remove('text-sky-400');
+            btn.classList.add('text-slate-500');
+        }
+        renderGeofences();
+    });
+
+    document.getElementById('btnCloseGeofenceModal')?.addEventListener('click', closeGeofenceModal);
+    document.getElementById('btnCancelGeofence')?.addEventListener('click', closeGeofenceModal);
+    document.getElementById('btnSaveGeofence')?.addEventListener('click', saveGeofence);
+
+    document.getElementById('gfInputRadius')?.addEventListener('input', (e) => {
+        const lbl = document.getElementById('gfRadiusValue');
+        if (lbl) lbl.innerText = `${e.target.value} metros`;
+    });
+
+    document.querySelectorAll('#gfColorPicker button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            activeGfColor = btn.getAttribute('data-color') || '#38bdf8';
+            document.querySelectorAll('#gfColorPicker button').forEach(b => b.classList.remove('ring-2', 'ring-white'));
+            btn.classList.add('ring-2', 'ring-white');
+        });
     });
 
     // Botón flotante: Conmutar visibilidad de etiquetas
@@ -802,13 +1310,13 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('btnCenterActiveDev')?.addEventListener('click', () => {
         if (selectedDeviceId) {
             const dev = devicesCache.find(d => d.id === selectedDeviceId);
-            if (dev && dev.last_latitude && dev.last_longitude) {
-                map.flyTo([dev.last_latitude, dev.last_longitude], 16, { duration: 1.2 });
+            if (dev && dev.latest_point) {
+                map.flyTo([dev.latest_point.latitude, dev.latest_point.longitude], 16, { duration: 1.2 });
             }
         }
     });
 
-    document.getElementById('timeRange').addEventListener('change', () => {
+    document.getElementById('timeRange')?.addEventListener('change', () => {
         if (selectedDeviceId) {
             loadRoute(selectedDeviceId, true);
         }

@@ -52,3 +52,22 @@ class DeviceOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class GeofenceCreate(BaseModel):
+    name: str
+    latitude: float
+    longitude: float
+    radius: float = 150.0
+    color: Optional[str] = "#38bdf8"
+
+class GeofenceOut(BaseModel):
+    id: int
+    name: str
+    latitude: float
+    longitude: float
+    radius: float
+    color: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
