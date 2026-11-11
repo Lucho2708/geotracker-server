@@ -193,6 +193,16 @@ def update_device(
     db.commit()
     return {"status": "ok", "name": device.name}
 
+import math
+
+def calculate_haversine_distance(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371.0 # Radio de la Tierra en km
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2)**2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 @app.delete("/api/v1/devices/{device_id}")
 def delete_device(
     device_id: str,
@@ -209,33 +219,74 @@ def delete_device(
 @app.get("/api/v1/devices/{device_id}/route")
 def get_device_route(
     device_id: str,
-    hours: int = Query(24, ge=1, le=168), # Por defecto últimas 24 horas
-    limit: int = Query(2000, le=5000),
+    date: Optional[str] = Query(None), # Formato YYYY-MM-DD
+    start_hour: Optional[int] = Query(None, ge=0, le=23),
+    end_hour: Optional[int] = Query(None, ge=0, le=23),
+    hours: Optional[int] = Query(None, ge=1, le=168), # Por defecto últimas N horas si no hay fecha
+    limit: int = Query(5000, le=10000),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    since_timestamp = int((datetime.utcnow() - timedelta(hours=hours)).timestamp() * 1000)
+    query = db.query(LocationPoint).filter(LocationPoint.device_id == device_id)
 
-    points = (
-        db.query(LocationPoint)
-        .filter(LocationPoint.device_id == device_id)
-        .filter(LocationPoint.timestamp >= since_timestamp)
-        .order_by(LocationPoint.timestamp.asc())
-        .limit(limit)
-        .all()
-    )
+    if date:
+        try:
+            target_date = datetime.strptime(date.strip(), "%Y-%m-%d")
+            s_hour = start_hour if start_hour is not None else 0
+            e_hour = end_hour if end_hour is not None else 23
 
-    return [
-        {
-            "id": p.id,
-            "timestamp": p.timestamp,
-            "latitude": p.latitude,
-            "longitude": p.longitude,
-            "altitude": p.altitude,
-            "speed": p.speed,
-            "bearing": p.bearing,
-            "accuracy": p.accuracy,
-            "received_at": p.received_at.isoformat()
-        }
-        for p in points
-    ]
+            start_dt = target_date.replace(hour=s_hour, minute=0, second=0, microsecond=0)
+            end_dt = target_date.replace(hour=e_hour, minute=59, second=59, microsecond=999999)
+
+            start_ts = int(start_dt.timestamp() * 1000)
+            end_ts = int(end_dt.timestamp() * 1000)
+
+            query = query.filter(LocationPoint.timestamp >= start_ts, LocationPoint.timestamp <= end_ts)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Use YYYY-MM-DD")
+    else:
+        h = hours or 24
+        since_timestamp = int((datetime.utcnow() - timedelta(hours=h)).timestamp() * 1000)
+        query = query.filter(LocationPoint.timestamp >= since_timestamp)
+
+    points = query.order_by(LocationPoint.timestamp.asc()).limit(limit).all()
+
+    # Cálculo de estadísticas del recorrido
+    total_km = 0.0
+    max_speed_kmh = 0.0
+    for i in range(len(points)):
+        speed_kmh = (points[i].speed or 0.0) * 3.6
+        if speed_kmh > max_speed_kmh:
+            max_speed_kmh = speed_kmh
+        if i > 0:
+            dist = calculate_haversine_distance(
+                points[i-1].latitude, points[i-1].longitude,
+                points[i].latitude, points[i].longitude
+            )
+            # Descartar saltos GPS aberrantes mayores a 5km
+            if dist < 5.0:
+                total_km += dist
+
+    return {
+        "stats": {
+            "total_points": len(points),
+            "total_distance_km": round(total_km, 2),
+            "max_speed_kmh": round(max_speed_kmh, 1),
+            "first_timestamp": points[0].timestamp if points else None,
+            "last_timestamp": points[-1].timestamp if points else None
+        },
+        "points": [
+            {
+                "id": p.id,
+                "timestamp": p.timestamp,
+                "latitude": p.latitude,
+                "longitude": p.longitude,
+                "altitude": p.altitude,
+                "speed": p.speed,
+                "bearing": p.bearing,
+                "accuracy": p.accuracy,
+                "received_at": p.received_at.isoformat()
+            }
+            for p in points
+        ]
+    }

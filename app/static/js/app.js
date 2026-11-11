@@ -2,13 +2,14 @@
 let map = null;
 let currentPolyline = null;
 let currentMarkersGroup = null;
+let routeEndpointsGroup = null;
 let selectedDeviceId = null;
 let devicesCache = [];
 let autoRefreshTimer = null;
+let currentFilterMode = 'quick'; // 'quick' o 'date'
 
 // Inicialización del Mapa Leaflet
 function initMap() {
-    // Coordenadas por defecto (Bogotá o centro neutral)
     map = L.map('map', {
         zoomControl: true,
         attributionControl: true
@@ -22,6 +23,7 @@ function initMap() {
     }).addTo(map);
 
     currentMarkersGroup = L.layerGroup().addTo(map);
+    routeEndpointsGroup = L.layerGroup().addTo(map);
 }
 
 // Cargar Dispositivos desde el API
@@ -181,15 +183,36 @@ function updateTelemetryBox(dev) {
 
 // Cargar la ruta de un dispositivo
 async function loadRoute(deviceId, fitBounds = true) {
-    const hours = document.getElementById('timeRange').value;
+    let queryUrl = `/api/v1/devices/${deviceId}/route`;
+    if (currentFilterMode === 'date') {
+        const filterDate = document.getElementById('filterDate').value;
+        const startHour = document.getElementById('startHour').value;
+        const endHour = document.getElementById('endHour').value;
+        queryUrl += `?date=${encodeURIComponent(filterDate)}&start_hour=${startHour}&end_hour=${endHour}`;
+    } else {
+        const hours = document.getElementById('timeRange').value;
+        queryUrl += `?hours=${hours}`;
+    }
+
     try {
-        const res = await fetch(`/api/v1/devices/${deviceId}/route?hours=${hours}`);
-        const points = await res.json();
+        const res = await fetch(queryUrl);
+        const data = await res.json();
+        const points = data.points || [];
+        const stats = data.stats || {};
 
         if (currentPolyline) {
             map.removeLayer(currentPolyline);
             currentPolyline = null;
         }
+        routeEndpointsGroup.clearLayers();
+
+        // Actualizar tarjeta de métricas
+        const totalDistElem = document.getElementById('routeTotalDist');
+        const maxSpeedElem = document.getElementById('routeMaxSpeed');
+        const pointsCountElem = document.getElementById('routePointsCount');
+        if (totalDistElem) totalDistElem.innerText = `${stats.total_distance_km || 0.0} km`;
+        if (maxSpeedElem) maxSpeedElem.innerText = `${stats.max_speed_kmh || 0} km/h`;
+        if (pointsCountElem) pointsCountElem.innerText = `${stats.total_points || 0} puntos`;
 
         if (points.length === 0) return;
 
@@ -198,10 +221,35 @@ async function loadRoute(deviceId, fitBounds = true) {
         // Dibujar polyline estilizada en color Cyan neón
         currentPolyline = L.polyline(latLngs, {
             color: '#38bdf8',
-            weight: 4,
+            weight: 5,
             opacity: 0.85,
             smoothFactor: 1
         }).addTo(map);
+
+        // Marcador de Inicio (Verde) y Fin (Rojo/Bandera) si hay varios puntos
+        if (points.length >= 2) {
+            const firstPt = points[0];
+            const startMarker = L.circleMarker([firstPt.latitude, firstPt.longitude], {
+                radius: 7,
+                fillColor: '#22c55e',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).bindPopup(`<b>Punto de Inicio:</b> ${new Date(firstPt.timestamp).toLocaleTimeString()}`);
+            routeEndpointsGroup.addLayer(startMarker);
+
+            const lastPt = points[points.length - 1];
+            const endMarker = L.circleMarker([lastPt.latitude, lastPt.longitude], {
+                radius: 7,
+                fillColor: '#ef4444',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).bindPopup(`<b>Último Punto:</b> ${new Date(lastPt.timestamp).toLocaleTimeString()}<br>Velocidad: ${(lastPt.speed * 3.6).toFixed(1)} km/h`);
+            routeEndpointsGroup.addLayer(endMarker);
+        }
 
         if (fitBounds && latLngs.length > 0) {
             map.fitBounds(currentPolyline.getBounds(), { padding: [50, 50] });
@@ -267,6 +315,48 @@ window.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadDevices();
     setupAutoRefresh();
+
+    // Inicializar selectores de horas (00:00 a 23:00)
+    const startHourSelect = document.getElementById('startHour');
+    const endHourSelect = document.getElementById('endHour');
+    for (let h = 0; h < 24; h++) {
+        const val = h.toString().padStart(2, '0') + ':00';
+        startHourSelect.innerHTML += `<option value="${h}" ${h === 0 ? 'selected' : ''}>${val}</option>`;
+        endHourSelect.innerHTML += `<option value="${h}" ${h === 23 ? 'selected' : ''}>${val}</option>`;
+    }
+
+    // Inicializar selector de fecha con la fecha de hoy
+    const today = new Date().toISOString().split('T')[0];
+    const filterDateInput = document.getElementById('filterDate');
+    if (filterDateInput) filterDateInput.value = today;
+
+    // Cambiar entre Modo Rápido y Modo por Fecha
+    const btnQuick = document.getElementById('btnModeQuick');
+    const btnDate = document.getElementById('btnModeDate');
+    const panelQuick = document.getElementById('filterQuickPanel');
+    const panelDate = document.getElementById('filterDatePanel');
+
+    btnQuick.addEventListener('click', () => {
+        currentFilterMode = 'quick';
+        btnQuick.className = 'px-2 py-0.5 rounded-md font-medium bg-sky-600 text-white transition';
+        btnDate.className = 'px-2 py-0.5 rounded-md font-medium text-slate-400 hover:text-white transition';
+        panelQuick.classList.remove('hidden');
+        panelDate.classList.add('hidden');
+        if (selectedDeviceId) loadRoute(selectedDeviceId, true);
+    });
+
+    btnDate.addEventListener('click', () => {
+        currentFilterMode = 'date';
+        btnDate.className = 'px-2 py-0.5 rounded-md font-medium bg-sky-600 text-white transition';
+        btnQuick.className = 'px-2 py-0.5 rounded-md font-medium text-slate-400 hover:text-white transition';
+        panelQuick.classList.add('hidden');
+        panelDate.classList.remove('hidden');
+        if (selectedDeviceId) loadRoute(selectedDeviceId, true);
+    });
+
+    document.getElementById('btnApplyDateFilter').addEventListener('click', () => {
+        if (selectedDeviceId) loadRoute(selectedDeviceId, true);
+    });
 
     document.getElementById('refreshBtn').addEventListener('click', () => {
         loadDevices();

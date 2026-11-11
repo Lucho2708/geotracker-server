@@ -28,19 +28,49 @@
         </div>
 
         <!-- Filtros y Opciones Rápidas -->
-        <div class="p-3 bg-slate-950/40 border-b border-slate-800/80 flex items-center justify-between text-xs">
-            <div class="flex items-center space-x-2">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-slate-300 font-medium" id="deviceCounter">0 Móviles</span>
+        <div class="p-3 bg-slate-950/60 border-b border-slate-800 text-xs space-y-2.5">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span class="text-slate-300 font-semibold" id="deviceCounter">0 Móviles</span>
+                </div>
+                <!-- Selector de Modo de Filtro -->
+                <div class="flex bg-slate-800 p-0.5 rounded-lg border border-slate-700/60 text-[10px]">
+                    <button id="btnModeQuick" class="px-2 py-0.5 rounded-md font-medium bg-sky-600 text-white transition">Reciente</button>
+                    <button id="btnModeDate" class="px-2 py-0.5 rounded-md font-medium text-slate-400 hover:text-white transition">Por Día y Horas</button>
+                </div>
             </div>
-            <div class="flex items-center space-x-2">
-                <label for="timeRange" class="text-slate-400">Rango:</label>
+
+            <!-- Panel Filtro Rápido (Horas relativas) -->
+            <div id="filterQuickPanel" class="flex items-center justify-between">
+                <span class="text-slate-400 text-[11px]">Rango de tiempo:</span>
                 <select id="timeRange" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
                     <option value="6">Últimas 6 horas</option>
                     <option value="24" selected>Últimas 24 horas</option>
                     <option value="72">Últimos 3 días</option>
                     <option value="168">Última semana</option>
                 </select>
+            </div>
+
+            <!-- Panel Filtro por Día y Horas -->
+            <div id="filterDatePanel" class="hidden space-y-2 pt-1 border-t border-slate-800/80">
+                <div class="flex items-center justify-between">
+                    <label for="filterDate" class="text-slate-400 text-[11px]">Fecha:</label>
+                    <input type="date" id="filterDate" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-2 py-0.5 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+                </div>
+                <div class="flex items-center justify-between space-x-2">
+                    <div class="flex items-center space-x-1">
+                        <span class="text-slate-400 text-[10px]">De:</span>
+                        <select id="startHour" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-[11px]"></select>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <span class="text-slate-400 text-[10px]">A:</span>
+                        <select id="endHour" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-1.5 py-0.5 text-[11px]"></select>
+                    </div>
+                    <button id="btnApplyDateFilter" class="bg-sky-600 hover:bg-sky-500 text-white px-2.5 py-1 rounded text-[11px] font-semibold transition">
+                        Buscar
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -78,6 +108,24 @@
             <div class="text-slate-400 text-[11px] pt-1 flex justify-between">
                 <span>Última señal:</span>
                 <span class="text-slate-200 font-medium" id="statLastSeen">-</span>
+            </div>
+
+            <!-- Resumen Estadístico de la Ruta -->
+            <div id="routeStatsBox" class="bg-sky-950/40 border border-sky-800/40 rounded-lg p-2.5 space-y-1.5 mt-2">
+                <div class="flex justify-between items-center text-[10px] font-bold text-sky-400">
+                    <span class="uppercase tracking-wider">Métricas de la Ruta</span>
+                    <span id="routePointsCount" class="text-slate-400 font-normal">0 puntos</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-center pt-0.5">
+                    <div class="bg-slate-900/80 p-1.5 rounded border border-slate-800">
+                        <div class="text-[9px] text-slate-400">Distancia Recorrida</div>
+                        <div class="text-sm font-bold text-emerald-400" id="routeTotalDist">0.0 km</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-1.5 rounded border border-slate-800">
+                        <div class="text-[9px] text-slate-400">Velocidad Máx</div>
+                        <div class="text-sm font-bold text-sky-300" id="routeMaxSpeed">0 km/h</div>
+                    </div>
+                </div>
             </div>
         </div>
 
