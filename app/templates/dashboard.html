@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}GeoTracker - Mapa de Dispositivos en Tiempo Real{% endblock %}
+
+{% block content %}
+<div class="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+    <!-- BARRA LATERAL (SIDEBAR) -->
+    <aside class="w-full md:w-96 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-2xl flex-shrink-0">
+        <!-- Encabezado Sidebar -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 backdrop-blur">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold text-white leading-tight">GeoTracker</h1>
+                    <p class="text-xs text-slate-400">Panel Central de Monitoreo</p>
+                </div>
+            </div>
+            <a href="/logout" title="Cerrar Sesión" class="text-slate-400 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                </svg>
+            </a>
+        </div>
+
+        <!-- Filtros y Opciones Rápidas -->
+        <div class="p-3 bg-slate-950/40 border-b border-slate-800/80 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span class="text-slate-300 font-medium" id="deviceCounter">0 Móviles</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <label for="timeRange" class="text-slate-400">Rango:</label>
+                <select id="timeRange" class="bg-slate-800 text-slate-200 border border-slate-700 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-sky-500 focus:outline-none">
+                    <option value="6">Últimas 6 horas</option>
+                    <option value="24" selected>Últimas 24 horas</option>
+                    <option value="72">Últimos 3 días</option>
+                    <option value="168">Última semana</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Lista de Celulares Registrados -->
+        <div class="flex-1 overflow-y-auto divide-y divide-slate-800/60 p-2 space-y-1" id="deviceList">
+            <div class="text-center py-10 text-slate-500 text-sm">
+                <svg class="w-8 h-8 mx-auto mb-2 opacity-50 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                </svg>
+                Cargando dispositivos...
+            </div>
+        </div>
+
+        <!-- Telemetría del Dispositivo Seleccionado -->
+        <div id="telemetryBox" class="hidden p-4 bg-slate-950/80 border-t border-slate-800 text-xs space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="font-semibold text-slate-200 uppercase tracking-wider text-[11px]" id="selectedDevName">-</span>
+                <span id="selectedDevBadge" class="px-2 py-0.5 rounded-full text-[10px] font-bold"></span>
+            </div>
+            <div class="grid grid-cols-3 gap-2 pt-1 text-center">
+                <div class="bg-slate-800/70 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-slate-400 text-[10px]">Velocidad</div>
+                    <div class="text-sm font-bold text-white" id="statSpeed">0 km/h</div>
+                </div>
+                <div class="bg-slate-800/70 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-slate-400 text-[10px]">Precisión</div>
+                    <div class="text-sm font-bold text-white" id="statAccuracy">±0 m</div>
+                </div>
+                <div class="bg-slate-800/70 p-2 rounded-lg border border-slate-700/50">
+                    <div class="text-slate-400 text-[10px]">Altitud</div>
+                    <div class="text-sm font-bold text-white" id="statAltitude">0 m</div>
+                </div>
+            </div>
+            <div class="text-slate-400 text-[11px] pt-1 flex justify-between">
+                <span>Última señal:</span>
+                <span class="text-slate-200 font-medium" id="statLastSeen">-</span>
+            </div>
+        </div>
+
+        <!-- Barra inferior del sidebar -->
+        <div class="p-3 border-t border-slate-800 text-xs flex items-center justify-between text-slate-400">
+            <label class="flex items-center space-x-2 cursor-pointer select-none">
+                <input type="checkbox" id="autoRefresh" checked class="rounded bg-slate-800 border-slate-700 text-sky-500 focus:ring-0">
+                <span>Auto-refrescar (30s)</span>
+            </label>
+            <button id="refreshBtn" class="p-1 hover:text-white transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ÁREA DEL MAPA LEAFLET -->
+    <main class="flex-1 relative h-full">
+        <div id="map" class="w-full h-full"></div>
+    </main>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/app.js"></script>
+{% endblock %}

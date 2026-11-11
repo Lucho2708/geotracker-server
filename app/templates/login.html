@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Iniciar Sesión - GeoTracker{% endblock %}
+
+{% block content %}
+<div class="min-h-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-slate-950">
+    <div class="max-w-md w-full space-y-8 bg-slate-900/80 p-8 rounded-2xl border border-slate-800 shadow-2xl backdrop-blur-xl">
+        <div class="text-center">
+            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 mb-4 shadow-inner">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-extrabold text-white tracking-tight">GeoTracker</h2>
+            <p class="mt-2 text-sm text-slate-400">Portal de Telemetría y Geolocalización</p>
+        </div>
+
+        <form id="loginForm" class="mt-8 space-y-6">
+            <div id="errorAlert" class="hidden rounded-lg bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 text-center"></div>
+
+            <div class="space-y-4">
+                <div>
+                    <label for="username" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">Usuario</label>
+                    <input id="username" name="username" type="text" required value="admin"
+                        class="mt-1 block w-full px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-xs font-semibold uppercase tracking-wider text-slate-300">Contraseña</label>
+                    <input id="password" name="password" type="password" required value="admin123"
+                        class="mt-1 block w-full px-4 py-3 bg-slate-800/90 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all">
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" id="submitBtn"
+                    class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-lg text-sm font-semibold text-white bg-sky-600 hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 transition-all duration-200">
+                    Ingresar al Portal
+                </button>
+            </div>
+            
+            <p class="text-xs text-center text-slate-500">Credenciales iniciales por defecto: <code class="text-slate-400">admin</code> / <code class="text-slate-400">admin123</code></p>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('submitBtn');
+    const alert = document.getElementById('errorAlert');
+    btn.disabled = true;
+    btn.innerText = 'Verificando...';
+    alert.classList.add('hidden');
+
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+
+    try {
+        const response = await fetch('/api/v1/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (response.ok) {
+            window.location.href = '/';
+        } else {
+            const data = await response.json();
+            alert.innerText = data.detail || 'Error de credenciales';
+            alert.classList.remove('hidden');
+        }
+    } catch (err) {
+        alert.innerText = 'Error conectando con el servidor';
+        alert.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = 'Ingresar al Portal';
+    }
+});
+</script>
+{% endblock %}
