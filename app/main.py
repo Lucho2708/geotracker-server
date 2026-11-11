@@ -65,6 +65,7 @@ def ingest_telemetry(
         db.add(device)
     
     device.last_seen = datetime.utcnow()
+    db.commit() # Asegurar que el dispositivo exista antes de insertar puntos (Foreign Key)
 
     # Inserción de lote de coordenadas
     points_to_insert = []
@@ -84,8 +85,7 @@ def ingest_telemetry(
 
     if points_to_insert:
         db.bulk_save_objects(points_to_insert)
-
-    db.commit()
+        db.commit()
 
     return {
         "status": "success",
