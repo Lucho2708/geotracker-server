@@ -23,6 +23,15 @@
     border: 1px solid #334155 !important;
 }
 
+.leaflet-popup-close-button {
+    color: #94a3b8 !important;
+    padding: 8px 8px 0 0 !important;
+}
+
+.leaflet-popup-close-button:hover {
+    color: #ffffff !important;
+}
+
 /* Selector de capas de mapa (Layers Control) en Modo Oscuro */
 .leaflet-control-layers {
     background: rgba(15, 23, 42, 0.85) !important;
@@ -124,10 +133,18 @@
     color: #ffffff !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    padding: 3px 8px !important;
+    padding: 4px 10px !important;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
     white-space: nowrap !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.custom-map-tooltip:hover {
+    transform: translateY(-2px) scale(1.05);
+    border-color: #38bdf8 !important;
+    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4) !important;
 }
 
 .custom-map-tooltip.leaflet-tooltip-top::before,
@@ -147,10 +164,17 @@
     color: #ffffff !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    padding: 3px 8px !important;
+    padding: 4px 10px !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
     white-space: nowrap !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.route-start-tooltip:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 18px rgba(74, 222, 128, 0.4) !important;
 }
 
 .route-start-tooltip.leaflet-tooltip-top::before,
@@ -170,10 +194,17 @@
     color: #ffffff !important;
     font-size: 11px !important;
     font-weight: 600 !important;
-    padding: 3px 8px !important;
+    padding: 4px 10px !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
     white-space: nowrap !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.route-end-tooltip:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 18px rgba(248, 113, 113, 0.4) !important;
 }
 
 .route-end-tooltip.leaflet-tooltip-top::before,
@@ -193,10 +224,17 @@
     color: #fbbf24 !important;
     font-size: 10px !important;
     font-weight: 600 !important;
-    padding: 2px 7px !important;
+    padding: 3px 8px !important;
     white-space: nowrap !important;
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5) !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.route-stop-tooltip:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 5px 15px rgba(245, 158, 11, 0.4) !important;
 }
 
 .route-stop-tooltip.leaflet-tooltip-top::before,

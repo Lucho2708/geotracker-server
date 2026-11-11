@@ -169,26 +169,90 @@ function renderDeviceMarkers(devices) {
         const marker = L.marker([lat, lng], { icon: customIcon });
 
         const popupContent = `
-            <div class="text-xs space-y-1">
-                <div class="font-bold text-sky-400">${escapeHtml(dev.name || dev.id)}</div>
-                <div><b>Estado:</b> ${dev.is_online ? '<span class="text-emerald-400 font-semibold">En línea</span>' : '<span class="text-slate-400">Desconectado</span>'}</div>
-                <div><b>Velocidad:</b> ${speedKmh} km/h</div>
-                <div><b>Precisión:</b> ±${Math.round(dev.latest_point.accuracy || 0)} m</div>
-                <div><b>Última captura:</b> ${timeStr}</div>
+            <div class="p-2 min-w-[240px] space-y-2">
+                <div class="flex items-center justify-between pb-1.5 border-b border-slate-700">
+                    <div class="flex items-center space-x-1.5 font-bold text-sm text-sky-400">
+                        <svg class="w-4 h-4 text-sky-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                        <span class="truncate">${escapeHtml(dev.name || dev.id)}</span>
+                    </div>
+                    <span class="${dev.is_online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-700 text-slate-300'} px-2 py-0.5 rounded-full text-[10px] font-bold">
+                        ${dev.is_online ? 'EN LÍNEA' : 'DESCONECTADO'}
+                    </span>
+                </div>
+                <div class="space-y-1 text-xs text-slate-300">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">⚡ Velocidad:</span>
+                        <span class="font-semibold text-white">${speedKmh} km/h</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">🎯 Precisión GPS:</span>
+                        <span class="font-semibold text-white">±${Math.round(dev.latest_point.accuracy || 0)} m</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">⛰️ Altitud:</span>
+                        <span class="font-semibold text-white">${Math.round(dev.latest_point.altitude || 0)} m</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">🕒 Última señal:</span>
+                        <span class="font-semibold text-white">${new Date(dev.latest_point.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                        <span>Coordenadas:</span>
+                        <span class="font-mono text-slate-300">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
+                    </div>
+                </div>
+                <div class="pt-1 flex space-x-1.5">
+                    <button onclick="renameDevice('${dev.id}', '${escapeHtml(dev.name || dev.id)}')" 
+                        class="flex-1 py-1 px-2 text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition flex items-center justify-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        <span>Renombrar</span>
+                    </button>
+                    <button onclick="selectDevice('${dev.id}')" 
+                        class="flex-1 py-1 px-2 text-[11px] font-semibold bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex items-center justify-center space-x-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path></svg>
+                        <span>Ver Ruta</span>
+                    </button>
+                </div>
             </div>
         `;
         marker.bindPopup(popupContent);
 
-        // Etiqueta permanente identificadora del dispositivo
+        // Click en el marcador: seleccionar dispositivo y abrir detalle
+        marker.on('click', () => {
+            selectDevice(dev.id);
+        });
+
+        // Etiqueta permanente identificadora del dispositivo con su nombre de configuración
         if (showLabels) {
             const statusDot = dev.is_online ? '🟢' : '⚪';
-            const labelText = `${statusDot} ${escapeHtml(dev.name || dev.id)}${speedKmh > 0 ? ` • ${speedKmh} km/h` : ''}`;
+            const labelText = `${statusDot} ${escapeHtml(dev.name || dev.id)}`;
             marker.bindTooltip(labelText, {
                 permanent: true,
+                interactive: true,
                 direction: 'top',
                 offset: [0, -12],
                 className: 'custom-map-tooltip'
             });
+
+            // Al hacer clic en la etiqueta de texto flotante, se selecciona y se abre el popup con el detalle
+            marker.on('tooltipopen', (e) => {
+                const tooltipEl = e.tooltip.getElement();
+                if (tooltipEl) {
+                    tooltipEl.onclick = (ev) => {
+                        ev.stopPropagation();
+                        selectDevice(dev.id);
+                        setTimeout(() => marker.openPopup(), 100);
+                    };
+                }
+            });
+            const existingEl = marker.getTooltip()?.getElement();
+            if (existingEl) {
+                existingEl.onclick = (ev) => {
+                    ev.stopPropagation();
+                    selectDevice(dev.id);
+                    setTimeout(() => marker.openPopup(), 100);
+                };
+            }
         }
 
         currentMarkersGroup.addLayer(marker);
@@ -295,6 +359,7 @@ async function loadRoute(deviceId, fitBounds = true) {
             if (showLabels) {
                 singleMarker.bindTooltip(`📍 ${ptTimeStr}`, {
                     permanent: true,
+                    interactive: true,
                     direction: 'top',
                     offset: [0, -8],
                     className: 'custom-map-tooltip'
@@ -312,19 +377,40 @@ async function loadRoute(deviceId, fitBounds = true) {
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.95
-            }).bindPopup(`<b>🟢 Punto de Inicio</b><br>Hora: ${startTimeStr}<br>Altitud: ${Math.round(firstPt.altitude || 0)} m`);
+            });
+            const startPopup = `
+                <div class="text-xs space-y-1 p-1">
+                    <div class="font-bold text-emerald-400">🟢 Punto de Inicio</div>
+                    <div><b>Hora:</b> ${startTimeStr}</div>
+                    <div><b>Altitud:</b> ${Math.round(firstPt.altitude || 0)} m</div>
+                    <div><b>Coordenadas:</b> ${firstPt.latitude.toFixed(5)}, ${firstPt.longitude.toFixed(5)}</div>
+                </div>
+            `;
+            startMarker.bindPopup(startPopup);
 
             if (showLabels) {
-                startMarker.bindTooltip(`🟢 Inicio (${startTimeStr})`, {
+                startMarker.bindTooltip('🟢 Inicio', {
                     permanent: true,
+                    interactive: true,
                     direction: 'top',
                     offset: [0, -8],
                     className: 'route-start-tooltip'
+                });
+                startMarker.on('tooltipopen', (e) => {
+                    const el = e.tooltip.getElement();
+                    if (el) {
+                        el.onclick = (ev) => {
+                            ev.stopPropagation();
+                            startMarker.openPopup();
+                        };
+                    }
                 });
             }
             routeEndpointsGroup.addLayer(startMarker);
 
             // 2. Detección de Paradas / Detenciones intermedias (>= 4 min detenido en radio < 40m)
+            // Agrupamos paradas cercanas para evitar etiquetas superpuestas
+            const recordedStops = [];
             for (let i = 0; i < points.length - 1; i++) {
                 const p1 = points[i];
                 const p2 = points[i + 1];
@@ -334,22 +420,46 @@ async function loadRoute(deviceId, fitBounds = true) {
                 const distMeters = haversineMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
 
                 if (diffMinutes >= 4 && distMeters < 40) {
+                    const isNearby = recordedStops.some(s => haversineMeters(p1.latitude, p1.longitude, s.lat, s.lng) < 45);
+                    if (isNearby) continue;
+
+                    recordedStops.push({ lat: p1.latitude, lng: p1.longitude, duration: diffMinutes });
+
                     const stopTimeStr = new Date(p1.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     const stopMarker = L.circleMarker([p1.latitude, p1.longitude], {
-                        radius: 5,
+                        radius: 6,
                         fillColor: '#f59e0b',
                         color: '#ffffff',
                         weight: 2,
                         opacity: 0.9,
-                        fillOpacity: 0.9
-                    }).bindPopup(`<b>🅿️ Detención / Parada</b><br>Hora: ${stopTimeStr}<br>Duración estimada: ${Math.round(diffMinutes)} min`);
+                        fillOpacity: 0.95
+                    });
+                    const stopPopup = `
+                        <div class="text-xs space-y-1 p-1">
+                            <div class="font-bold text-amber-400">🅿️ Detención / Parada</div>
+                            <div><b>Hora:</b> ${stopTimeStr}</div>
+                            <div><b>Duración estimada:</b> ${Math.round(diffMinutes)} minutos</div>
+                            <div><b>Coordenadas:</b> ${p1.latitude.toFixed(5)}, ${p1.longitude.toFixed(5)}</div>
+                        </div>
+                    `;
+                    stopMarker.bindPopup(stopPopup);
 
                     if (showLabels) {
-                        stopMarker.bindTooltip(`🅿️ Parada (${Math.round(diffMinutes)} min • ${stopTimeStr})`, {
+                        stopMarker.bindTooltip(`🅿️ Parada (${Math.round(diffMinutes)} min)`, {
                             permanent: true,
+                            interactive: true,
                             direction: 'bottom',
                             offset: [0, 6],
                             className: 'route-stop-tooltip'
+                        });
+                        stopMarker.on('tooltipopen', (e) => {
+                            const el = e.tooltip.getElement();
+                            if (el) {
+                                el.onclick = (ev) => {
+                                    ev.stopPropagation();
+                                    stopMarker.openPopup();
+                                };
+                            }
                         });
                     }
                     routeEndpointsGroup.addLayer(stopMarker);
@@ -379,6 +489,7 @@ async function loadRoute(deviceId, fitBounds = true) {
             }
 
             // 4. Punto Final / Último Punto (Rojo)
+            // No colocamos tooltip permanente encima para que no tape el nombre del dispositivo
             const lastPt = points[points.length - 1];
             const endTimeStr = formatShortTime(lastPt.timestamp);
             const lastSpeed = Math.round((lastPt.speed || 0) * 3.6);
@@ -389,16 +500,13 @@ async function loadRoute(deviceId, fitBounds = true) {
                 weight: 2,
                 opacity: 1,
                 fillOpacity: 0.95
-            }).bindPopup(`<b>🏁 Último Punto Registrado</b><br>Hora: ${endTimeStr}<br>Velocidad: ${lastSpeed} km/h<br>Precisión: ±${Math.round(lastPt.accuracy || 0)} m`);
-
-            if (showLabels) {
-                endMarker.bindTooltip(`🏁 Fin (${endTimeStr} • ${lastSpeed} km/h)`, {
-                    permanent: true,
-                    direction: 'top',
-                    offset: [0, -8],
-                    className: 'route-end-tooltip'
-                });
-            }
+            });
+            endMarker.bindPopup(`<b>🏁 Último Punto Registrado</b><br>Hora: ${endTimeStr}<br>Velocidad: ${lastSpeed} km/h<br>Precisión: ±${Math.round(lastPt.accuracy || 0)} m`);
+            endMarker.bindTooltip(`🏁 Fin de Ruta (${endTimeStr})`, {
+                direction: 'bottom',
+                offset: [0, 8],
+                className: 'route-end-tooltip'
+            });
             routeEndpointsGroup.addLayer(endMarker);
         }
 
