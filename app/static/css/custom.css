@@ -1,6 +1,11 @@
-/* Personalizaciones para Leaflet Dark */
+/* Personalizaciones para Leaflet */
 .leaflet-container {
     background-color: #020617 !important;
+}
+
+/* Dark Mode para OpenStreetMap 100% libre sin API key ni marcas de agua */
+.osm-dark-tiles {
+    filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.2) brightness(0.75);
 }
 
 /* Tooltip y Popup personalizados */

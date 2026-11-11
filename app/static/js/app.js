@@ -14,11 +14,11 @@ function initMap() {
         attributionControl: true
     }).setView([4.6097, -74.0817], 13);
 
-    // Capa de Mapa Libre (CartoDB Dark Matter basada en OpenStreetMap)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
+    // Capa de Mapa 100% Libre y Gratuita (OpenStreetMap Oficial sin API Key)
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        className: 'osm-dark-tiles'
     }).addTo(map);
 
     currentMarkersGroup = L.layerGroup().addTo(map);
