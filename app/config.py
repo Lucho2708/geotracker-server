@@ -18,6 +18,6 @@ SECRET_KEY = os.getenv("SECRET_KEY", "geotracker_super_secret_jwt_token_key_chan
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 días de sesión
 
-ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "admin123")
+ADMIN_USER = os.getenv("ADMIN_USER", "nexo_master")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "Nx#Track2026!Pro$")
 API_AUTH_TOKEN = os.getenv("API_AUTH_TOKEN", "")

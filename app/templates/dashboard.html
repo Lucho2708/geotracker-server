@@ -16,18 +16,21 @@
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-base font-bold text-white leading-tight">GeoTracker</h1>
-                    <p class="text-xs text-slate-400">Panel Central de Monitoreo</p>
+                    <div class="flex items-center space-x-1.5">
+                        <h1 class="text-base font-extrabold text-white leading-tight">GeoTracker</h1>
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 font-medium">Panel de Control Privado</p>
                 </div>
             </div>
             <div class="flex items-center space-x-2">
-                <a href="/descargar" title="Descargar APK para Android" class="flex items-center space-x-1.5 px-2.5 py-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/40 text-emerald-400 rounded-lg text-xs font-semibold transition">
+                <a href="/descargar" title="Descargar APK para Android" class="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/40 text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-bold transition shadow-sm">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     <span>APK</span>
                 </a>
-                <a href="/logout" title="Cerrar Sesión" class="text-slate-400 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 transition">
+                <a href="/logout" title="Cerrar Sesión" class="text-slate-400 hover:text-red-400 p-2 rounded-xl hover:bg-slate-800/80 transition">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
                     </svg>
@@ -154,6 +157,17 @@
     <!-- ÁREA DEL MAPA LEAFLET -->
     <main class="flex-1 relative h-full">
         <div id="map" class="w-full h-full"></div>
+        
+        <!-- Botón flotante para centrar dispositivo en el mapa -->
+        <div class="absolute bottom-6 right-6 z-[1000] flex flex-col space-y-2">
+            <button id="btnCenterActiveDev" title="Centrar en Móvil Seleccionado" 
+                class="w-11 h-11 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-sky-400 rounded-xl shadow-xl flex items-center justify-center transition backdrop-blur-md active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+            </button>
+        </div>
     </main>
 </div>
 {% endblock %}

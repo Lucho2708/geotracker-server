@@ -71,6 +71,13 @@ def get_current_user(
     return user
 
 def ensure_admin_user(db: Session):
+    # Eliminar usuario 'admin' inseguro anterior si cambió el nombre
+    if ADMIN_USER != "admin":
+        old_admin = db.query(User).filter(User.username == "admin").first()
+        if old_admin:
+            db.delete(old_admin)
+            db.commit()
+
     existing = db.query(User).filter(User.username == ADMIN_USER).first()
     if not existing:
         admin = User(
@@ -80,4 +87,10 @@ def ensure_admin_user(db: Session):
         )
         db.add(admin)
         db.commit()
-        print(f"👤 Usuario administrador creado por defecto: {ADMIN_USER} / {ADMIN_PASSWORD}")
+        print(f"👤 Usuario administrador creado con éxito: {ADMIN_USER}")
+    else:
+        # Asegurar que si la contraseña en variables de entorno cambió, se actualice en la base de datos
+        if not verify_password(ADMIN_PASSWORD, existing.hashed_password):
+            existing.hashed_password = hash_password(ADMIN_PASSWORD)
+            db.commit()
+            print(f"🔐 Contraseña de {ADMIN_USER} actualizada correctamente desde entorno")

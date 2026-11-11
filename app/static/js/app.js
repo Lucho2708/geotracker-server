@@ -10,17 +10,38 @@ let currentFilterMode = 'quick'; // 'quick' o 'date'
 
 // Inicialización del Mapa Leaflet
 function initMap() {
+    // 1. Capa Oscura (OSM con filtro dark)
+    const darkLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        className: 'osm-dark-tiles'
+    });
+
+    // 2. Capa Satélite HD (Esri World Imagery - Libre de alta resolución)
+    const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri World Imagery'
+    });
+
+    // 3. Capa Callejero Detallado (Esri World Street Map)
+    const streetLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 19,
+        attribution: '&copy; Esri Streets'
+    });
+
     map = L.map('map', {
         zoomControl: true,
-        attributionControl: true
+        attributionControl: true,
+        layers: [darkLayer]
     }).setView([4.6097, -74.0817], 13);
 
-    // Capa de Mapa 100% Libre y Gratuita (OpenStreetMap Oficial sin API Key)
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        className: 'osm-dark-tiles'
-    }).addTo(map);
+    // Selector de Capas Interactivo en la esquina superior derecha
+    const baseMaps = {
+        "🌑 Modo Oscuro": darkLayer,
+        "🛰️ Satélite HD": satelliteLayer,
+        "🗺️ Calles Esri": streetLayer
+    };
+    L.control.layers(baseMaps, null, { position: 'topright' }).addTo(map);
 
     currentMarkersGroup = L.layerGroup().addTo(map);
     routeEndpointsGroup = L.layerGroup().addTo(map);
@@ -360,6 +381,16 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('refreshBtn').addEventListener('click', () => {
         loadDevices();
+    });
+
+    // Botón flotante: Centrar en el dispositivo activo
+    document.getElementById('btnCenterActiveDev')?.addEventListener('click', () => {
+        if (selectedDeviceId) {
+            const dev = devicesCache.find(d => d.id === selectedDeviceId);
+            if (dev && dev.last_latitude && dev.last_longitude) {
+                map.flyTo([dev.last_latitude, dev.last_longitude], 16, { duration: 1.2 });
+            }
+        }
     });
 
     document.getElementById('timeRange').addEventListener('change', () => {
