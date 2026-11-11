@@ -3,9 +3,21 @@
 {% block title %}GeoTracker - Mapa de Dispositivos en Tiempo Real{% endblock %}
 
 {% block content %}
-<div class="flex-1 flex flex-col md:flex-row h-full overflow-hidden">
+<!-- Pestañas de navegación Mobile-First (< md) -->
+<div class="md:hidden flex bg-slate-950 border-b border-slate-800 text-xs font-semibold z-30 flex-shrink-0">
+    <button id="btnMobileTabMap" class="flex-1 py-3 text-center text-sky-400 border-b-2 border-sky-500 bg-slate-900/50 flex items-center justify-center space-x-1.5 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+        <span>Mapa en Vivo</span>
+    </button>
+    <button id="btnMobileTabList" class="flex-1 py-3 text-center text-slate-400 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition hover:text-white">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+        <span id="mobileTabDevText">Móviles y Filtros</span>
+    </button>
+</div>
+
+<div class="flex-1 flex flex-col md:flex-row h-full overflow-hidden relative">
     <!-- BARRA LATERAL (SIDEBAR) -->
-    <aside class="w-full md:w-96 bg-slate-900 border-r border-slate-800 flex flex-col z-20 shadow-2xl flex-shrink-0">
+    <aside id="sidebarPanel" class="hidden md:flex w-full md:w-96 bg-slate-900 border-r border-slate-800 flex-col z-20 shadow-2xl flex-shrink-0 h-full">
         <!-- Encabezado Sidebar -->
         <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 backdrop-blur">
             <div class="flex items-center space-x-3">
@@ -155,9 +167,73 @@
     </aside>
 
     <!-- ÁREA DEL MAPA LEAFLET -->
-    <main class="flex-1 relative h-full">
+    <main id="mainMapArea" class="flex-1 relative h-full">
         <div id="map" class="w-full h-full"></div>
         
+        <!-- FICHA DE TELEMETRÍA MOBILE-FIRST (BOTTOM SHEET / FLOATING CARD) -->
+        <div id="mobileDetailSheet" class="hidden absolute bottom-0 left-0 right-0 md:bottom-6 md:left-6 md:right-auto md:w-96 z-[1100] transition-transform duration-300 ease-out">
+            <div class="bg-slate-900/95 md:bg-slate-900/90 backdrop-blur-2xl border-t md:border border-slate-700/80 md:rounded-2xl rounded-t-3xl shadow-2xl p-4 space-y-3">
+                <!-- Indicador de arrastre táctil para móvil -->
+                <div class="w-10 h-1 bg-slate-700 rounded-full mx-auto md:hidden -mt-1.5 mb-1.5"></div>
+
+                <!-- Cabecera: Nombre, Estado y Botón Cerrar -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <div class="w-9 h-9 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 flex-shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 id="sheetDevName" class="font-bold text-base text-white truncate">-</h3>
+                            <p id="sheetLastSeen" class="text-[11px] text-slate-400 truncate">-</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 flex-shrink-0">
+                        <span id="sheetDevBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider"></span>
+                        <button onclick="closeMobileSheet()" title="Cerrar Ficha" class="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-red-500/20 hover:text-red-400 border border-slate-700 text-slate-400 flex items-center justify-center transition active:scale-95">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Cuadrícula de Métricas Clave -->
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-2">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Velocidad</span>
+                        <span id="sheetSpeed" class="text-base font-extrabold text-sky-400 leading-tight mt-0.5 block">0 km/h</span>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-2">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Precisión</span>
+                        <span id="sheetAccuracy" class="text-base font-extrabold text-emerald-400 leading-tight mt-0.5 block">±0 m</span>
+                    </div>
+                    <div class="bg-slate-800/50 border border-slate-700/60 rounded-xl p-2">
+                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Altitud</span>
+                        <span id="sheetAltitude" class="text-base font-extrabold text-slate-200 leading-tight mt-0.5 block">0 m</span>
+                    </div>
+                </div>
+
+                <!-- Coordenadas -->
+                <div class="flex items-center justify-between text-xs bg-slate-950/50 rounded-xl px-3 py-2 border border-slate-800/80">
+                    <span class="text-slate-400 flex items-center space-x-1.5">
+                        <span>📍</span>
+                        <span>Coordenadas GPS:</span>
+                    </span>
+                    <span id="sheetCoords" class="font-mono text-sky-300 font-semibold text-[11px]">-</span>
+                </div>
+
+                <!-- Botones Táctiles para Móvil -->
+                <div class="grid grid-cols-2 gap-2 pt-0.5">
+                    <button id="btnSheetCenter" class="py-2.5 px-3 bg-sky-600 hover:bg-sky-500 active:scale-95 text-white font-semibold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow-lg shadow-sky-600/20 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        <span>Centrar Mapa</span>
+                    </button>
+                    <button id="btnSheetRename" class="py-2.5 px-3 bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-700 text-slate-200 font-semibold rounded-xl text-xs flex items-center justify-center space-x-1.5 shadow transition">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                        <span>Renombrar</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Botones flotantes en el mapa -->
         <div class="absolute bottom-6 right-6 z-[1000] flex flex-col space-y-2">
             <button id="btnToggleLabels" title="Mostrar u Ocultar Etiquetas en el Mapa" 

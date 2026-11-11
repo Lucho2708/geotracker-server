@@ -8,47 +8,54 @@
     filter: brightness(0.65) invert(1) contrast(2.8) hue-rotate(200deg) saturate(0.25) brightness(0.8);
 }
 
-/* Tooltip y Popup personalizados */
+/* Tooltip y Popup personalizados Mobile-First */
 .leaflet-popup {
-    margin-bottom: 24px !important;
+    margin-bottom: 20px !important;
 }
 
 .leaflet-popup-content-wrapper {
-    background: rgba(15, 23, 42, 0.96) !important;
+    background: rgba(15, 23, 42, 0.98) !important;
     backdrop-filter: blur(16px) !important;
     color: #f8fafc !important;
-    border-radius: 18px !important;
-    border: 1px solid rgba(56, 189, 248, 0.35) !important;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.85), 0 0 25px rgba(56, 189, 248, 0.15) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.9), 0 0 20px rgba(56, 189, 248, 0.15) !important;
     padding: 0 !important;
-    overflow: hidden !important;
+    width: auto !important;
+    max-width: 90vw !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
 }
 
 .leaflet-popup-content {
     margin: 0 !important;
+    padding: 12px 14px !important;
+    width: 250px !important;
+    max-width: 85vw !important;
+    box-sizing: border-box !important;
     line-height: normal !important;
 }
 
 .leaflet-popup-tip {
     background: #0f172a !important;
-    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5) !important;
 }
 
 .leaflet-popup-close-button {
-    top: 10px !important;
-    right: 10px !important;
-    width: 24px !important;
-    height: 24px !important;
-    border-radius: 8px !important;
+    top: 8px !important;
+    right: 8px !important;
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px !important;
     background: rgba(30, 41, 59, 0.8) !important;
     border: 1px solid rgba(71, 85, 105, 0.5) !important;
     color: #94a3b8 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    font-size: 16px !important;
-    font-weight: 500 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
     line-height: 1 !important;
     padding: 0 !important;
     transition: all 0.2s ease !important;
@@ -60,7 +67,6 @@
     background: rgba(239, 68, 68, 0.3) !important;
     border-color: rgba(239, 68, 68, 0.6) !important;
     color: #f87171 !important;
-    transform: scale(1.08);
 }
 
 /* Selector de capas de mapa (Layers Control) en Modo Oscuro */

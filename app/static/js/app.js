@@ -81,6 +81,8 @@ function renderDeviceList(devices) {
     const container = document.getElementById('deviceList');
     const counter = document.getElementById('deviceCounter');
     counter.innerText = `${devices.length} Móvil${devices.length === 1 ? '' : 'es'}`;
+    const mobileTab = document.getElementById('mobileTabDevText');
+    if (mobileTab) mobileTab.innerText = `Móviles (${devices.length})`;
 
     if (devices.length === 0) {
         container.innerHTML = `
@@ -169,77 +171,69 @@ function renderDeviceMarkers(devices) {
         const marker = L.marker([lat, lng], { icon: customIcon });
 
         const popupContent = `
-            <div class="p-3 w-[290px] space-y-2.5">
-                <!-- Encabezado con nombre y estado (con espacio reservado a la derecha para el botón de cerrar) -->
-                <div class="flex items-center justify-between pb-2 pr-8 border-b border-slate-700/80">
-                    <div class="flex items-center space-x-2 min-w-0">
-                        <div class="w-7 h-7 rounded-lg bg-sky-500/10 border border-sky-500/30 flex items-center justify-center flex-shrink-0">
-                            <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                        </div>
-                        <span class="font-bold text-sm text-white truncate max-w-[130px]" title="${escapeHtml(dev.name || dev.id)}">${escapeHtml(dev.name || dev.id)}</span>
-                    </div>
-                    <span class="${dev.is_online ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-400 border border-slate-700'} px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider flex-shrink-0 whitespace-nowrap">
-                        ${dev.is_online ? '● EN LÍNEA' : '○ DESCONECTADO'}
+            <div class="space-y-2">
+                <!-- Encabezado con nombre y estado -->
+                <div class="flex items-center justify-between pb-1.5 pr-7 border-b border-slate-700/80">
+                    <span class="font-bold text-sm text-white truncate max-w-[125px]">${escapeHtml(dev.name || dev.id)}</span>
+                    <span class="${dev.is_online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'} px-2 py-0.5 rounded-full text-[9px] font-bold">
+                        ${dev.is_online ? 'EN LÍNEA' : 'DESCONECTADO'}
                     </span>
                 </div>
 
-                <!-- Mini cuadrícula de métricas principales -->
-                <div class="grid grid-cols-2 gap-2">
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">⚡ Velocidad</span>
-                        <span class="text-base font-extrabold text-sky-400 leading-tight mt-0.5">${speedKmh} <span class="text-[10px] font-medium text-slate-400">km/h</span></span>
+                <!-- Métricas -->
+                <div class="grid grid-cols-2 gap-1.5 text-center">
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-1.5">
+                        <span class="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block">Velocidad</span>
+                        <span class="text-sm font-extrabold text-sky-400 block">${speedKmh} km/h</span>
                     </div>
-                    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2 flex flex-col items-center justify-center">
-                        <span class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">🎯 Precisión</span>
-                        <span class="text-base font-extrabold text-emerald-400 leading-tight mt-0.5">±${Math.round(dev.latest_point.accuracy || 0)} <span class="text-[10px] font-medium text-slate-400">m</span></span>
+                    <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-1.5">
+                        <span class="text-[9px] font-semibold text-slate-400 uppercase tracking-wider block">Precisión</span>
+                        <span class="text-sm font-extrabold text-emerald-400 block">±${Math.round(dev.latest_point.accuracy || 0)} m</span>
                     </div>
                 </div>
 
-                <!-- Lista de información secundaria -->
-                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-2.5 space-y-1.5 text-xs">
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400 flex items-center space-x-1.5">
-                            <span>⛰️</span>
-                            <span>Altitud:</span>
-                        </span>
+                <!-- Info -->
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-lg p-2 space-y-1 text-[11px] text-slate-300">
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Altitud:</span>
                         <span class="font-medium text-slate-200">${Math.round(dev.latest_point.altitude || 0)} m</span>
                     </div>
-                    <div class="flex items-center justify-between">
-                        <span class="text-slate-400 flex items-center space-x-1.5">
-                            <span>🕒</span>
-                            <span>Última señal:</span>
-                        </span>
-                        <span class="font-medium text-slate-200">${new Date(dev.latest_point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    <div class="flex justify-between">
+                        <span class="text-slate-400">Última señal:</span>
+                        <span class="font-medium text-slate-200">${new Date(dev.latest_point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
-                    <div class="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
-                        <span class="text-slate-400 flex items-center space-x-1.5">
-                            <span>📍</span>
-                            <span>Coords:</span>
-                        </span>
+                    <div class="flex justify-between pt-1 border-t border-slate-800/80 text-[10px]">
+                        <span class="text-slate-400">Coords:</span>
                         <span class="font-mono text-sky-300">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>
                     </div>
                 </div>
 
-                <!-- Botones de Acción -->
-                <div class="flex space-x-2 pt-0.5">
+                <!-- Botones -->
+                <div class="flex space-x-1.5 pt-0.5">
                     <button onclick="map.flyTo([${lat}, ${lng}], 17, { duration: 1 }); selectDevice('${dev.id}');" 
-                        class="flex-1 py-1.5 px-2.5 text-xs font-semibold bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-xl shadow-lg shadow-sky-600/20 transition flex items-center justify-center space-x-1.5">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        class="flex-1 py-1 px-2 text-xs font-semibold bg-sky-600 hover:bg-sky-500 active:scale-95 text-white rounded-lg transition flex items-center justify-center space-x-1 shadow">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
                         <span>Centrar</span>
                     </button>
                     <button onclick="renameDevice('${dev.id}', '${escapeHtml(dev.name || dev.id)}')" 
-                        class="flex-1 py-1.5 px-2.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-xl border border-slate-700 shadow transition flex items-center justify-center space-x-1.5">
-                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        class="flex-1 py-1 px-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 rounded-lg border border-slate-700 transition flex items-center justify-center space-x-1">
+                        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                         <span>Renombrar</span>
                     </button>
                 </div>
             </div>
         `;
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popupContent, {
+            maxWidth: 280,
+            minWidth: 230,
+            autoPan: true,
+            autoPanPadding: [15, 15]
+        });
 
-        // Click en el marcador: seleccionar dispositivo y abrir detalle
+        // Click en el marcador: seleccionar dispositivo y abrir detalle en sheet y popup
         marker.on('click', () => {
             selectDevice(dev.id);
+            updateMobileSheet(dev);
         });
 
         // Etiqueta permanente identificadora del dispositivo con su nombre de configuración
@@ -254,13 +248,14 @@ function renderDeviceMarkers(devices) {
                 className: 'custom-map-tooltip'
             });
 
-            // Al hacer clic en la etiqueta de texto flotante, se selecciona y se abre el popup con el detalle
+            // Al hacer clic en la etiqueta de texto flotante, se selecciona y se abre el popup y sheet
             marker.on('tooltipopen', (e) => {
                 const tooltipEl = e.tooltip.getElement();
                 if (tooltipEl) {
                     tooltipEl.onclick = (ev) => {
                         ev.stopPropagation();
                         selectDevice(dev.id);
+                        updateMobileSheet(dev);
                         setTimeout(() => marker.openPopup(), 100);
                     };
                 }
@@ -270,6 +265,7 @@ function renderDeviceMarkers(devices) {
                 existingEl.onclick = (ev) => {
                     ev.stopPropagation();
                     selectDevice(dev.id);
+                    updateMobileSheet(dev);
                     setTimeout(() => marker.openPopup(), 100);
                 };
             }
@@ -277,6 +273,52 @@ function renderDeviceMarkers(devices) {
 
         currentMarkersGroup.addLayer(marker);
     });
+}
+
+// Actualizar Ficha Mobile-First (Bottom Sheet)
+function updateMobileSheet(dev) {
+    const sheet = document.getElementById('mobileDetailSheet');
+    if (!sheet) return;
+
+    sheet.classList.remove('hidden');
+
+    document.getElementById('sheetDevName').innerText = dev.name || dev.id;
+    const badge = document.getElementById('sheetDevBadge');
+    if (dev.is_online) {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        badge.innerText = '● EN LÍNEA';
+    } else {
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700';
+        badge.innerText = '○ DESCONECTADO';
+    }
+
+    if (dev.latest_point) {
+        const speedKmh = Math.round((dev.latest_point.speed || 0) * 3.6);
+        document.getElementById('sheetSpeed').innerText = `${speedKmh} km/h`;
+        document.getElementById('sheetAccuracy').innerText = `±${Math.round(dev.latest_point.accuracy || 0)} m`;
+        document.getElementById('sheetAltitude').innerText = `${Math.round(dev.latest_point.altitude || 0)} m`;
+        document.getElementById('sheetLastSeen').innerText = 'Última señal: ' + new Date(dev.latest_point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        document.getElementById('sheetCoords').innerText = `${dev.latest_point.latitude.toFixed(5)}, ${dev.latest_point.longitude.toFixed(5)}`;
+
+        document.getElementById('btnSheetCenter').onclick = () => {
+            map.flyTo([dev.latest_point.latitude, dev.latest_point.longitude], 17, { duration: 1 });
+        };
+    } else {
+        document.getElementById('sheetSpeed').innerText = '0 km/h';
+        document.getElementById('sheetAccuracy').innerText = '±0 m';
+        document.getElementById('sheetAltitude').innerText = '0 m';
+        document.getElementById('sheetLastSeen').innerText = 'Sin registros GPS';
+        document.getElementById('sheetCoords').innerText = '-';
+    }
+
+    document.getElementById('btnSheetRename').onclick = () => {
+        renameDevice(dev.id, dev.name || dev.id);
+    };
+}
+
+function closeMobileSheet() {
+    const sheet = document.getElementById('mobileDetailSheet');
+    if (sheet) sheet.classList.add('hidden');
 }
 
 // Seleccionar un dispositivo
@@ -287,7 +329,14 @@ function selectDevice(deviceId) {
     const dev = devicesCache.find(d => d.id === deviceId);
     if (dev) {
         updateTelemetryBox(dev);
+        updateMobileSheet(dev);
         loadRoute(deviceId, true);
+
+        // En vista móvil (< 768px), pasar automáticamente al mapa
+        const btnTabMap = document.getElementById('btnMobileTabMap');
+        if (btnTabMap && window.innerWidth < 768) {
+            btnTabMap.click();
+        }
     }
 }
 
@@ -648,11 +697,43 @@ function setupAutoRefresh() {
     resetTimer();
 }
 
+// Configurar navegación de pestañas en Mobile (< md)
+function setupMobileTabs() {
+    const btnTabMap = document.getElementById('btnMobileTabMap');
+    const btnTabList = document.getElementById('btnMobileTabList');
+    const sidebar = document.getElementById('sidebarPanel');
+    const mapArea = document.getElementById('mainMapArea');
+
+    if (!btnTabMap || !btnTabList || !sidebar || !mapArea) return;
+
+    btnTabMap.addEventListener('click', () => {
+        btnTabMap.className = 'flex-1 py-3 text-center text-sky-400 border-b-2 border-sky-500 bg-slate-900/50 flex items-center justify-center space-x-1.5 transition';
+        btnTabList.className = 'flex-1 py-3 text-center text-slate-400 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition hover:text-white';
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex');
+        mapArea.classList.remove('hidden');
+        mapArea.classList.add('flex');
+        if (map) {
+            setTimeout(() => map.invalidateSize(), 150);
+        }
+    });
+
+    btnTabList.addEventListener('click', () => {
+        btnTabList.className = 'flex-1 py-3 text-center text-sky-400 border-b-2 border-sky-500 bg-slate-900/50 flex items-center justify-center space-x-1.5 transition';
+        btnTabMap.className = 'flex-1 py-3 text-center text-slate-400 border-b-2 border-transparent flex items-center justify-center space-x-1.5 transition hover:text-white';
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+        mapArea.classList.add('hidden');
+        mapArea.classList.remove('flex');
+    });
+}
+
 // Inicialización al cargar la ventana
 window.addEventListener('DOMContentLoaded', () => {
     initMap();
     loadDevices();
     setupAutoRefresh();
+    setupMobileTabs();
 
     // Inicializar selectores de horas (00:00 a 23:00)
     const startHourSelect = document.getElementById('startHour');
