@@ -158,8 +158,14 @@
     <main class="flex-1 relative h-full">
         <div id="map" class="w-full h-full"></div>
         
-        <!-- Botón flotante para centrar dispositivo en el mapa -->
+        <!-- Botones flotantes en el mapa -->
         <div class="absolute bottom-6 right-6 z-[1000] flex flex-col space-y-2">
+            <button id="btnToggleLabels" title="Mostrar u Ocultar Etiquetas en el Mapa" 
+                class="w-11 h-11 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-sky-400 rounded-xl shadow-xl flex items-center justify-center transition backdrop-blur-md active:scale-95">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+                </svg>
+            </button>
             <button id="btnCenterActiveDev" title="Centrar en Móvil Seleccionado" 
                 class="w-11 h-11 bg-slate-900/90 hover:bg-slate-800 border border-slate-700 text-sky-400 rounded-xl shadow-xl flex items-center justify-center transition backdrop-blur-md active:scale-95">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

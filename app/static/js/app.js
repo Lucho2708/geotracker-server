@@ -7,6 +7,7 @@ let selectedDeviceId = null;
 let devicesCache = [];
 let autoRefreshTimer = null;
 let currentFilterMode = 'quick'; // 'quick' o 'date'
+let showLabels = true; // Control de visibilidad de etiquetas permanentes
 
 // Inicialización del Mapa Leaflet
 function initMap() {
@@ -126,6 +127,25 @@ function renderDeviceList(devices) {
     }).join('');
 }
 
+// Distancia en metros entre dos coordenadas (Haversine)
+function haversineMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371e3;
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
+
+function formatShortTime(isoStr) {
+    if (!isoStr) return '';
+    return new Date(isoStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
 // Marcadores en el Mapa
 function renderDeviceMarkers(devices) {
     currentMarkersGroup.clearLayers();
@@ -136,6 +156,7 @@ function renderDeviceMarkers(devices) {
         const lat = dev.latest_point.latitude;
         const lng = dev.latest_point.longitude;
         const speedKmh = Math.round((dev.latest_point.speed || 0) * 3.6);
+        const timeStr = formatShortTime(dev.latest_point.timestamp);
 
         // Icono animado personalizado
         const customIcon = L.divIcon({
@@ -150,13 +171,26 @@ function renderDeviceMarkers(devices) {
         const popupContent = `
             <div class="text-xs space-y-1">
                 <div class="font-bold text-sky-400">${escapeHtml(dev.name || dev.id)}</div>
+                <div><b>Estado:</b> ${dev.is_online ? '<span class="text-emerald-400 font-semibold">En línea</span>' : '<span class="text-slate-400">Desconectado</span>'}</div>
                 <div><b>Velocidad:</b> ${speedKmh} km/h</div>
                 <div><b>Precisión:</b> ±${Math.round(dev.latest_point.accuracy || 0)} m</div>
-                <div><b>Última captura:</b> ${new Date(dev.latest_point.timestamp).toLocaleTimeString()}</div>
+                <div><b>Última captura:</b> ${timeStr}</div>
             </div>
         `;
-
         marker.bindPopup(popupContent);
+
+        // Etiqueta permanente identificadora del dispositivo
+        if (showLabels) {
+            const statusDot = dev.is_online ? '🟢' : '⚪';
+            const labelText = `${statusDot} ${escapeHtml(dev.name || dev.id)}${speedKmh > 0 ? ` • ${speedKmh} km/h` : ''}`;
+            marker.bindTooltip(labelText, {
+                permanent: true,
+                direction: 'top',
+                offset: [0, -12],
+                className: 'custom-map-tooltip'
+            });
+        }
+
         currentMarkersGroup.addLayer(marker);
     });
 }
@@ -247,28 +281,124 @@ async function loadRoute(deviceId, fitBounds = true) {
             smoothFactor: 1
         }).addTo(map);
 
-        // Marcador de Inicio (Verde) y Fin (Rojo/Bandera) si hay varios puntos
-        if (points.length >= 2) {
-            const firstPt = points[0];
-            const startMarker = L.circleMarker([firstPt.latitude, firstPt.longitude], {
+        if (points.length === 1) {
+            const pt = points[0];
+            const ptTimeStr = formatShortTime(pt.timestamp);
+            const singleMarker = L.circleMarker([pt.latitude, pt.longitude], {
                 radius: 7,
+                fillColor: '#38bdf8',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            }).bindPopup(`<b>📍 Posición Única:</b> ${ptTimeStr}`);
+            if (showLabels) {
+                singleMarker.bindTooltip(`📍 ${ptTimeStr}`, {
+                    permanent: true,
+                    direction: 'top',
+                    offset: [0, -8],
+                    className: 'custom-map-tooltip'
+                });
+            }
+            routeEndpointsGroup.addLayer(singleMarker);
+        } else if (points.length >= 2) {
+            // 1. Punto de Inicio (Verde)
+            const firstPt = points[0];
+            const startTimeStr = formatShortTime(firstPt.timestamp);
+            const startMarker = L.circleMarker([firstPt.latitude, firstPt.longitude], {
+                radius: 8,
                 fillColor: '#22c55e',
                 color: '#ffffff',
                 weight: 2,
                 opacity: 1,
-                fillOpacity: 0.9
-            }).bindPopup(`<b>Punto de Inicio:</b> ${new Date(firstPt.timestamp).toLocaleTimeString()}`);
+                fillOpacity: 0.95
+            }).bindPopup(`<b>🟢 Punto de Inicio</b><br>Hora: ${startTimeStr}<br>Altitud: ${Math.round(firstPt.altitude || 0)} m`);
+
+            if (showLabels) {
+                startMarker.bindTooltip(`🟢 Inicio (${startTimeStr})`, {
+                    permanent: true,
+                    direction: 'top',
+                    offset: [0, -8],
+                    className: 'route-start-tooltip'
+                });
+            }
             routeEndpointsGroup.addLayer(startMarker);
 
+            // 2. Detección de Paradas / Detenciones intermedias (>= 4 min detenido en radio < 40m)
+            for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                const t1 = new Date(p1.timestamp).getTime();
+                const t2 = new Date(p2.timestamp).getTime();
+                const diffMinutes = (t2 - t1) / 60000;
+                const distMeters = haversineMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+
+                if (diffMinutes >= 4 && distMeters < 40) {
+                    const stopTimeStr = new Date(p1.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const stopMarker = L.circleMarker([p1.latitude, p1.longitude], {
+                        radius: 5,
+                        fillColor: '#f59e0b',
+                        color: '#ffffff',
+                        weight: 2,
+                        opacity: 0.9,
+                        fillOpacity: 0.9
+                    }).bindPopup(`<b>🅿️ Detención / Parada</b><br>Hora: ${stopTimeStr}<br>Duración estimada: ${Math.round(diffMinutes)} min`);
+
+                    if (showLabels) {
+                        stopMarker.bindTooltip(`🅿️ Parada (${Math.round(diffMinutes)} min • ${stopTimeStr})`, {
+                            permanent: true,
+                            direction: 'bottom',
+                            offset: [0, 6],
+                            className: 'route-stop-tooltip'
+                        });
+                    }
+                    routeEndpointsGroup.addLayer(stopMarker);
+                }
+            }
+
+            // 3. Puntos de Paso Intermedios Interactivos (Waypoints al pasar el cursor)
+            const step = points.length > 80 ? Math.ceil(points.length / 40) : (points.length > 25 ? 2 : 1);
+            for (let i = 1; i < points.length - 1; i += step) {
+                const pt = points[i];
+                const ptSpeed = Math.round((pt.speed || 0) * 3.6);
+                const ptTime = formatShortTime(pt.timestamp);
+                const wpMarker = L.circleMarker([pt.latitude, pt.longitude], {
+                    radius: 3,
+                    fillColor: '#38bdf8',
+                    color: '#0f172a',
+                    weight: 1,
+                    opacity: 0.8,
+                    fillOpacity: 0.85
+                });
+                wpMarker.bindTooltip(`🕒 ${ptTime} • ⚡ ${ptSpeed} km/h • 🎯 ±${Math.round(pt.accuracy || 0)}m`, {
+                    direction: 'top',
+                    offset: [0, -4],
+                    className: 'waypoint-tooltip'
+                });
+                routeEndpointsGroup.addLayer(wpMarker);
+            }
+
+            // 4. Punto Final / Último Punto (Rojo)
             const lastPt = points[points.length - 1];
+            const endTimeStr = formatShortTime(lastPt.timestamp);
+            const lastSpeed = Math.round((lastPt.speed || 0) * 3.6);
             const endMarker = L.circleMarker([lastPt.latitude, lastPt.longitude], {
-                radius: 7,
+                radius: 8,
                 fillColor: '#ef4444',
                 color: '#ffffff',
                 weight: 2,
                 opacity: 1,
-                fillOpacity: 0.9
-            }).bindPopup(`<b>Último Punto:</b> ${new Date(lastPt.timestamp).toLocaleTimeString()}<br>Velocidad: ${(lastPt.speed * 3.6).toFixed(1)} km/h`);
+                fillOpacity: 0.95
+            }).bindPopup(`<b>🏁 Último Punto Registrado</b><br>Hora: ${endTimeStr}<br>Velocidad: ${lastSpeed} km/h<br>Precisión: ±${Math.round(lastPt.accuracy || 0)} m`);
+
+            if (showLabels) {
+                endMarker.bindTooltip(`🏁 Fin (${endTimeStr} • ${lastSpeed} km/h)`, {
+                    permanent: true,
+                    direction: 'top',
+                    offset: [0, -8],
+                    className: 'route-end-tooltip'
+                });
+            }
             routeEndpointsGroup.addLayer(endMarker);
         }
 
@@ -381,6 +511,23 @@ window.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('refreshBtn').addEventListener('click', () => {
         loadDevices();
+    });
+
+    // Botón flotante: Conmutar visibilidad de etiquetas
+    document.getElementById('btnToggleLabels')?.addEventListener('click', () => {
+        showLabels = !showLabels;
+        const btn = document.getElementById('btnToggleLabels');
+        if (showLabels) {
+            btn.classList.add('text-sky-400');
+            btn.classList.remove('text-slate-500');
+        } else {
+            btn.classList.remove('text-sky-400');
+            btn.classList.add('text-slate-500');
+        }
+        renderDeviceMarkers(devicesCache);
+        if (selectedDeviceId) {
+            loadRoute(selectedDeviceId, false);
+        }
     });
 
     // Botón flotante: Centrar en el dispositivo activo

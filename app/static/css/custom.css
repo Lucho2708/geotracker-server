@@ -112,3 +112,114 @@
 ::-webkit-scrollbar-thumb:hover {
     background: #334155;
 }
+
+/* ========================================================== */
+/* ETIQUETAS FLOTANTES Y TOOLTIPS DEL MAPA                   */
+/* ========================================================== */
+.custom-map-tooltip {
+    background: rgba(15, 23, 42, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(56, 189, 248, 0.6) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 3px 8px !important;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+}
+
+.custom-map-tooltip.leaflet-tooltip-top::before,
+.custom-map-tooltip::before {
+    border-top-color: rgba(56, 189, 248, 0.6) !important;
+}
+
+.custom-map-tooltip.leaflet-tooltip-bottom::before {
+    border-bottom-color: rgba(56, 189, 248, 0.6) !important;
+}
+
+.route-start-tooltip {
+    background: rgba(22, 101, 52, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid #4ade80 !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 3px 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+}
+
+.route-start-tooltip.leaflet-tooltip-top::before,
+.route-start-tooltip::before {
+    border-top-color: #4ade80 !important;
+}
+
+.route-start-tooltip.leaflet-tooltip-bottom::before {
+    border-bottom-color: #4ade80 !important;
+}
+
+.route-end-tooltip {
+    background: rgba(153, 27, 27, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid #f87171 !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    padding: 3px 8px !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6) !important;
+    white-space: nowrap !important;
+    pointer-events: none !important;
+}
+
+.route-end-tooltip.leaflet-tooltip-top::before,
+.route-end-tooltip::before {
+    border-top-color: #f87171 !important;
+}
+
+.route-end-tooltip.leaflet-tooltip-bottom::before {
+    border-bottom-color: #f87171 !important;
+}
+
+.route-stop-tooltip {
+    background: rgba(30, 41, 59, 0.95) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid #f59e0b !important;
+    border-radius: 8px !important;
+    color: #fbbf24 !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    padding: 2px 7px !important;
+    white-space: nowrap !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5) !important;
+    pointer-events: none !important;
+}
+
+.route-stop-tooltip.leaflet-tooltip-top::before,
+.route-stop-tooltip::before {
+    border-top-color: #f59e0b !important;
+}
+
+.route-stop-tooltip.leaflet-tooltip-bottom::before {
+    border-bottom-color: #f59e0b !important;
+}
+
+.waypoint-tooltip {
+    background: rgba(15, 23, 42, 0.92) !important;
+    backdrop-filter: blur(6px) !important;
+    border: 1px solid #38bdf8 !important;
+    border-radius: 6px !important;
+    color: #e2e8f0 !important;
+    font-size: 10px !important;
+    padding: 2px 6px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+}
+
+.waypoint-tooltip.leaflet-tooltip-top::before,
+.waypoint-tooltip::before {
+    border-top-color: #38bdf8 !important;
+}
